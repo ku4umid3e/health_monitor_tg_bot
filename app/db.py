@@ -4,8 +4,12 @@ from typing import List, Tuple, Dict
 import sqlite3
 
 
-conn = sqlite3.connect(os.path.join("db", "finance.db"))
+conn = sqlite3.connect(os.path.join("db", "measurements.db"))
 cursor = conn.cursor()
+
+
+def get_user():
+    pass
 
 
 def get_cursor() -> sqlite3.Cursor:
@@ -23,7 +27,7 @@ def get_cursor() -> sqlite3.Cursor:
 
     Example:
     >>> cursor = get_cursor()
-    >>> cursor.execute("SELECT * FROM expenses")
+    >>> cursor.execute("SELECT * FROM Measurements")
     >>> rows = cursor.fetchall()
 
     Raises:
@@ -44,7 +48,7 @@ def delete(table: str, row_id: int) -> None:
     row_id (int): The unique identifier of the row to be deleted.
 
     Example:
-    >>> delete("expenses", 123)
+    >>> delete("Measurements", 123)
 
     Note:
     - Ensure the connection (conn) and cursor (cursor) are initialized before calling this function.
@@ -71,7 +75,7 @@ def insert(table: str, column_values: Dict):
     column_values (Dict): A dictionary representing column-value pairs for the new row.
 
     Example:
-    >>> insert("users", {"name": "Alice", "age": 25, "email": "alice@example.com"})
+    >>> insert("users", {"name": "Alice", "telegramId": "123456789"})
 
     Note:
     - Ensure the keys in the column_values dictionary match the columns in the table.
@@ -111,8 +115,8 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
                 Each tuple contains values for the specified columns.
 
     Example:
-    >>> fetchall("users", ["id", "name", "email"])
-    [(1, 'John Doe', 'john@example.com'), (2, 'Jane Doe', 'jane@example.com'), ...]
+    >>> fetchall("users", ["id", "name", "telegramId"])
+    [(1, 'John Doe', '123456789'), (2, 'Jane Doe', '213456789'), ...]
     """
     columns_joined = ", ".join(columns)
     cursor.execute(f"SELECT {columns_joined} FROM {table}")
