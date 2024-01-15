@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app
+    container_name: bot_app
+  
+    command: >
+      sh -c "python main.py"
