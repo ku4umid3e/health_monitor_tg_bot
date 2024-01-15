@@ -70,5 +70,3 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         ),
     ]
     await update.inline_query.answer(results)
-
-
