@@ -1,20 +1,22 @@
 -- Таблица "Users"
 CREATE TABLE Users (
     UserID INTEGER PRIMARY KEY,
-    Username VARCHAR(255),
-    TelegramId VARCHAR(255)
+    First_name VARCHAR(250),
+    Last_name VARCHAR(250),
+    Username VARCHAR(250),
+    TelegramId INTEGER
 );
 
 -- Таблица "ArmPositions"
 CREATE TABLE ArmPositions (
     ArmPositionID INTEGER PRIMARY KEY,
-    PositionName VARCHAR(255)
+    PositionName VARCHAR(100)
 );
 
 -- Таблица "BodyPositions"
 CREATE TABLE BodyPositions (
     BodyPositionID INTEGER PRIMARY KEY,
-    PositionName VARCHAR(255)
+    PositionName VARCHAR(100)
 );
 
 -- Таблица "Comments"

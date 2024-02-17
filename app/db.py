@@ -1,39 +1,67 @@
-import os
 from typing import List, Tuple, Dict
-
+import logging
 import sqlite3
 
-
-conn = sqlite3.connect(os.path.join("db", "measurements.db"))
-cursor = conn.cursor()
+from logging_config import configure_logging
 
 
-def get_user():
+configure_logging()
+logger = logging.getLogger(__name__)
+db_name = "measurements.db"
+
+
+class ConnectionError(Exception):
     pass
 
 
-def get_cursor() -> sqlite3.Cursor:
-    """
-    Returns the SQLite cursor.
+class UseDB:
+    """"""
+    def __init__(self, conf) -> None:
+        self.config = conf
 
-    This function retrieves and returns the SQLite cursor, allowing you to
-    perform SQL queries and operations directly on the database.
+    def __enter__(self) -> 'cursor':
+        """Метод должен подключится к базе данных"""
+        try:
+            self.conn = sqlite3.connect(self.config)
+            self.cursor = self.conn.cursor()
+            return self.cursor
+        except sqlite3.Error as err:
+            logger.error(f"ERROR:{err}")
+            raise ConnectionError(err)
 
-    Note:
-    - Ensure the connection (conn) and cursor (cursor) are initialized before calling this function.
+    def __exit__(self, exc_type, exc_value, exc_trace) -> None:
+        self.conn.commit()
+        self.cursor.close()
+        self.conn.close()
 
-    Returns:
-    sqlite3.Cursor: The SQLite cursor object.
 
-    Example:
-    >>> cursor = get_cursor()
-    >>> cursor.execute("SELECT * FROM Measurements")
-    >>> rows = cursor.fetchall()
+def get_user(effective_user):
+    logger.info(f"get_user {type(effective_user)}:{effective_user}")
+    sql_select = """
+        SELECT UserID, First_name, Last_name, Username, TelegramId FROM Users WHERE TelegramId =?
+        """
+    with UseDB(db_name) as cursor:
+        cursor.execute(sql_select, (effective_user.id,))
+        user = cursor.fetchall()
+    if not user:
+        logger.info(f"No user found for {effective_user.id}")
+        return create_user(effective_user)
+    key = ['UserID', 'First_name', 'Last_name', 'Username', 'TelegramId']
+    user = dict(zip(key, user[0]))
+    logger.info(f'Reqest in db = {user}')
+    return user
 
-    Raises:
-    sqlite3.Error: If there is an error during the SQL execution.
-    """
-    return cursor
+
+def create_user(effective_user):
+    user = {
+                "TelegramId": effective_user.id,
+                "First_name": effective_user.first_name,
+                "Last_name": effective_user.last_name,
+                "Username": effective_user.username,
+            }
+    insert('Users', user)
+    print(f"Inserted user {effective_user.id}")
+    return user
 
 
 def delete(table: str, row_id: int) -> None:
@@ -58,8 +86,8 @@ def delete(table: str, row_id: int) -> None:
     sqlite3.Error: If there is an error during the SQL execution.
     """
     row_id = int(row_id)
-    cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
-    conn.commit()
+    with UseDB(db_name) as cursor:
+        cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
 
 
 def insert(table: str, column_values: Dict):
@@ -89,12 +117,12 @@ def insert(table: str, column_values: Dict):
     columns = ', '.join(column_values.keys())
     values = [tuple(column_values.values())]
     placeholders = ", ".join("?" * len(column_values.keys()))
-    cursor.executemany(
-        f"INSERT INTO {table} "
-        f"({columns}) "
-        f"VALUES ({placeholders})",
-        values)
-    conn.commit()
+    with UseDB(db_name) as cursor:
+        cursor.executemany(
+            f"INSERT INTO {table} "
+            f"({columns}) "
+            f"VALUES ({placeholders})",
+            values)
 
 
 def fetchall(table: str, columns: List[str]) -> List[Tuple]:
@@ -119,64 +147,44 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     [(1, 'John Doe', '123456789'), (2, 'Jane Doe', '213456789'), ...]
     """
     columns_joined = ", ".join(columns)
-    cursor.execute(f"SELECT {columns_joined} FROM {table}")
-    rows = cursor.fetchall()
-    result = []
-    for row in rows:
-        dict_row = {}
-        for index, column in enumerate(columns):
-            dict_row[column] = row[index]
-        result.append(dict_row)
+    with UseDB(db_name) as cursor:
+        cursor.execute(f"SELECT {columns_joined} FROM {table}")
+        rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            dict_row = {}
+            for index, column in enumerate(columns):
+                dict_row[column] = row[index]
+            result.append(dict_row)
     return result
 
 
 def _init_db() -> None:
     """
-    Initializes the database by executing SQL commands from the 'createdb.sql' file.
-
     This function reads SQL commands from the 'createdb.sql' file and executes them
     using the SQLite cursor to initialize the database with necessary tables and schema.
-
-    Note:
-    - Ensure the connection (conn) and cursor (cursor) are initialized before calling this function.
-
-    Example:
-    >>> _init_db()
-
-    Raises:
-    sqlite3.Error: If there is an error during the SQL execution.
-    FileNotFoundError: If the 'createdb.sql' file is not found.
     """
     with open("createdb.sql", "r") as f:
         sql = f.read()
-    cursor.executescript(sql)
-    conn.commit()
+    with UseDB(db_name) as cursor:
+        cursor.executescript(sql)
 
 
 def check_db_exists():
     """
-    Checks if the 'expense' table exists in the database.
-
-    This function executes a SQL SELECT query to check if a table named 'expense' exists
+    This function executes a SQL SELECT query to check if a table named 'Users' exists
     in the database. If the table is found, the function returns without taking any action.
     If the table does not exist, it calls the '_init_db()' function to initialize the database.
-
-    Note:
-    - Ensure the connection (conn) and cursor (cursor) are initialized before calling this function.
-    - '_init_db()' is assumed to be a function responsible for creating the necessary tables.
-
-    Example:
-    >>> check_db_exists()
-
-    Raises:
-    sqlite3.Error: If there is an error during the SQL execution.
     """
-    cursor.execute("SELECT name FROM sqlite_master "
-                   "WHERE type='table' AND name='Users'")
-    table_exists = cursor.fetchall()
-    if table_exists:
-        return
-    _init_db()
+    logger.info("Check db")
+    with UseDB(db_name) as cursor:
+        cursor.execute("SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='Users'")
+        table_exists = cursor.fetchall()
+        if table_exists:
+            return
+        logger.info("Init db")
+        _init_db()
 
 
 check_db_exists()

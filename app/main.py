@@ -2,15 +2,16 @@ import os
 import logging
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, InlineQueryHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 from logging_config import configure_logging
 from handlers import start, help_command, echo
 
-
-TOKEN = os.getenv("TOKEN")
+configure_logging()
 
 logger = logging.getLogger(__name__)
+
+TOKEN = os.getenv("TOKEN")
 
 
 def main() -> None:

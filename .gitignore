@@ -134,3 +134,4 @@ pyrightconfig.json
 .gitignore
 .vscode/
 .flake8
+*.db
