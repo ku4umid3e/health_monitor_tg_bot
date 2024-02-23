@@ -1,9 +1,11 @@
-from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton
 
 
-def get_start_keyboard():
-    return ReplyKeyboardMarkup([
-        ["Записать измерения"],
-        ["Показать измерения"],
-    ], resize_keyboard=True
-    )
+WLCOME_KEYBOARD = [
+    [
+        InlineKeyboardButton("Записать результат измерения", callback_data="1"),
+    ],
+    [
+        InlineKeyboardButton("Посмотреть последний результат", callback_data="2")
+    ]
+]
