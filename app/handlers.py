@@ -10,10 +10,10 @@ from telegram import (
                     InlineKeyboardMarkup,
                     )
 from telegram.constants import ParseMode
-from telegram.ext import (
-                        ContextTypes,
-                        )
+from telegram.ext import ContextTypes
 
+from bot_messages import WELCOME_MESSAGE
+from keyboard import WLCOME_KEYBOARD
 import db
 from logging_config import configure_logging
 
@@ -33,16 +33,8 @@ def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends a message with three inline buttons attached."""
     greate_user(update=update, context=context)
-    keyboard = [
-        [
-            InlineKeyboardButton("Записать результат измерения", callback_data="1"),
-        ],
-        [
-            InlineKeyboardButton("Посмотреть последний результат", callback_data="2")
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Что делаем:", reply_markup=reply_markup)
+    reply_markup = InlineKeyboardMarkup(WLCOME_KEYBOARD)
+    await update.message.reply_text(WELCOME_MESSAGE, reply_markup=reply_markup)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
