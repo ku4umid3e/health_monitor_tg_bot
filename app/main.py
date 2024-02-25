@@ -2,11 +2,11 @@ import os
 import logging
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 
 from logging_config import configure_logging
 from handlers import start, help_command, echo
-
+from measurement import start_add_measurement, blood_pressure, pulse, comment
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,18 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     app = Application.builder().token(TOKEN).build()
 
+    questions_blood_pressure = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^(Записать результат измерения)$'), start_add_measurement)],
+        states={
+            "blood_pressure": [MessageHandler(filters.TEXT, blood_pressure)],
+            "pulse": [MessageHandler(filters.TEXT, pulse)],
+            "comment": [MessageHandler(filters.TEXT, comment)],
+        },
+        fallbacks=[],
+    )
+
     # on different commands - answer in Telegram
+    app.add_handler(questions_blood_pressure)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
 

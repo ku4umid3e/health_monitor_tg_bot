@@ -8,9 +8,9 @@ CREATE TABLE Users (
 );
 
 -- Таблица "ArmPositions"
-CREATE TABLE ArmPositions (
-    ArmPositionID INTEGER PRIMARY KEY,
-    PositionName VARCHAR(100)
+CREATE TABLE ArmLocation (
+    ArmLocationID INTEGER PRIMARY KEY,
+    LocationName VARCHAR(100)
 );
 
 -- Таблица "BodyPositions"
@@ -34,7 +34,7 @@ CREATE TABLE Measurements (
     CommentID INTEGER,
     Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (UserID) REFERENCES Users(UserID),
-    FOREIGN KEY (ArmPositionID) REFERENCES ArmPositions(ArmPositionID),
+    FOREIGN KEY (ArmLocationID) REFERENCES ArmLocation(ArmLocationID),
     FOREIGN KEY (BodyPositionID) REFERENCES BodyPositions(BodyPositionID),
     FOREIGN KEY (CommentID) REFERENCES Comments(CommentID)
 );
