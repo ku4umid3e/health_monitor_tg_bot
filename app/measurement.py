@@ -2,10 +2,11 @@
 import logging
 import re
 
-from telegram import ReplyKeyboardRemove, Update
+from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
+from keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD
 
 from logging_config import configure_logging
 
@@ -61,11 +62,33 @@ async def pulse(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(pulse) != 1:
         await update.message.reply_text(WRONG_PULSE)
         return "pulse"
-    
-    context.user_data['measurements'] = {'pulse': pulse}
+    reply_markup = ReplyKeyboardMarkup(BODY_POSITION_KEYBOARD, resize_keyboard=True)
+    context.user_data['measurements']['pulse'] = pulse
     await update.message.reply_text(
-        f'Ок, так и запишим ваш пульс {pulse[0]}.\n' \
-        'Опишите своё самочуствие(хорошое или плохое, а может что-то болит?).'
+        f'Ок, так и запишим ваш пульс {pulse[0]}.\n'
+        'Выбери положение при котором происходил замер.', 
+        reply_markup=reply_markup
+    )
+    return "body_position"
+
+
+async def body_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show new choice of buttons"""
+    context.user_data['measurements']['body_position'] = update.message.text
+    reply_markup = ReplyKeyboardMarkup(ARM_LOCATION_KEYBOARD, resize_keyboard=True)
+    await update.message.reply_text(
+        "Выбери положение манжеты на руке.", reply_markup=reply_markup
+    )
+    return "arm_location"
+
+
+async def arm_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show new choice of buttons"""
+    context.user_data['measurements']['arm_location'] = update.message.text
+
+    await update.message.reply_text(
+        "Последний вопрос, как самочуствие?\n(Любые жалобы).",
+        reply_markup=ReplyKeyboardRemove()
     )
     return "comment"
 
@@ -73,6 +96,8 @@ async def pulse(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     """
-    context.user_data['measurements'] = {'comment': update.message.text}
-    await update.message.reply_text('Супер! Я записал.')
+    context.user_data['measurements']['comment'] = update.message.text
+    query = context.user_data['measurements']
+    logger.info(f'type query:{query}')
+    await update.message.reply_text('Супер! Я записал.(НЕТ)')
     return ConversationHandler.END

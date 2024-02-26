@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 from logging_config import configure_logging
 from handlers import start, help_command, echo
-from measurement import start_add_measurement, blood_pressure, pulse, comment
+from measurement import start_add_measurement, blood_pressure, pulse, comment, body_position, arm_location
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ def main() -> None:
         states={
             "blood_pressure": [MessageHandler(filters.TEXT, blood_pressure)],
             "pulse": [MessageHandler(filters.TEXT, pulse)],
+            "body_position": [MessageHandler(filters.TEXT, body_position)],
+            "arm_location": [MessageHandler(filters.TEXT, arm_location)],
             "comment": [MessageHandler(filters.TEXT, comment)],
         },
         fallbacks=[],
