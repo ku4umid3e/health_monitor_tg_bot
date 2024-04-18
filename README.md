@@ -12,5 +12,5 @@
 
 [ ] Сделать команду last_measurement
 
-[ ] Сдулать команду get_day_statistics
+[ ] Сделать команду get_day_statistics
 
