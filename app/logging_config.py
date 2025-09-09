@@ -1,3 +1,4 @@
+"""Centralized logging configuration for the application."""
 import logging
 
 
@@ -9,7 +10,7 @@ def configure_logging():
         filename='bot.log'
     )
 
-    # set higher logging level for httpx to avoid all GET and POST requests being logged
+    # Increase httpx logging level to avoid logging every HTTP request
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 

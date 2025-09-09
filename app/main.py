@@ -1,3 +1,4 @@
+"""Application entrypoint for the Telegram bot."""
 import os
 import logging
 
@@ -15,7 +16,7 @@ TOKEN = os.getenv("TOKEN")
 
 
 def main() -> None:
-    """Start the bot."""
+    """Start the bot application and register handlers."""
     # Create the Application and pass it your bot's token.
     app = Application.builder().token(TOKEN).build()
 
@@ -31,12 +32,12 @@ def main() -> None:
         fallbacks=[],
     )
 
-    # on different commands - answer in Telegram
+    # Register command handlers
     app.add_handler(questions_blood_pressure)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
 
-    # on non command i.e message - echo the message on Telegram
+    # Echo back non-command messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Run the bot until the user presses Ctrl-C

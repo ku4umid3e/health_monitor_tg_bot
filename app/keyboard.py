@@ -1,13 +1,11 @@
+"""Static keyboard layouts for Telegram reply keyboards."""
 WLCOME_KEYBOARD = [
     ["Записать результат измерения", "Посмотреть последний результат"]
 ]
 
-
-
 BODY_POSITION_KEYBOARD = [
     ["Стоя", "Сидя", "Лёжа", "Полу лёжа", "Не указано",]
 ]
-
 
 ARM_LOCATION_KEYBOARD = [
     ["Левая рука", "Правая рука", "Левое плечё", "Правое плечё", "Не указано",]

@@ -1,3 +1,7 @@
+"""Command and message handlers for the Telegram bot.
+
+Docstrings are unified in English; user-visible texts remain in Russian.
+"""
 import logging
 
 from telegram import Update, ReplyKeyboardMarkup
@@ -14,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ensure user exists in DB and log greeting event."""
     logger.info(f"Grate user{update.effective_user}, {update.message.chat.id}")
     print("User pressed start", type(update.effective_user.id), update.effective_user.id)
     user = db.get_user(update.effective_user)
@@ -22,7 +27,7 @@ def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends a message with three inline buttons attached."""
+    """Send welcome message and show the main keyboard."""
     greate_user(update=update, context=context)
     await update.message.reply_text(
         WELCOME_MESSAGE, reply_markup=ReplyKeyboardMarkup(
@@ -34,12 +39,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
+    """Respond to /help with a short help message."""
     logger.info("User click help")
     await update.message.reply_text("Help!")
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
+    """Echo back any non-command user message."""
     logger.info("User send message")
     await update.message.reply_text(update.message.text)

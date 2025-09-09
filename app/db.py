@@ -3,6 +3,7 @@ import logging
 import sqlite3
 
 from logging_config import configure_logging
+import os
 
 
 configure_logging()
@@ -15,12 +16,17 @@ class ConnectionError(Exception):
 
 
 class UseDB:
-    """"""
+    """Context manager for SQLite database access.
+
+    Opens a connection to the configured SQLite database on entry and
+    commits and closes it on exit. Provides a cursor for executing SQL
+    statements within the context block.
+    """
     def __init__(self, conf) -> None:
         self.config = conf
 
-    def __enter__(self) -> 'cursor':
-        """Метод должен подключится к базе данных"""
+    def __enter__(self) -> sqlite3.Cursor:
+        """Open a database connection and return a cursor."""
         try:
             self.conn = sqlite3.connect(self.config)
             self.cursor = self.conn.cursor()
@@ -36,6 +42,7 @@ class UseDB:
 
 
 def get_user(effective_user):
+    """Return user record by Telegram user; create it if missing."""
     logger.info(f"get_user {type(effective_user)}:{effective_user}")
     sql_select = """
         SELECT UserID, First_name, Last_name, Username, TelegramId FROM Users WHERE TelegramId =?
@@ -53,6 +60,7 @@ def get_user(effective_user):
 
 
 def create_user(effective_user):
+    """Insert a new user based on Telegram's effective_user and return dict."""
     user = {
                 "TelegramId": effective_user.id,
                 "First_name": effective_user.first_name,
@@ -164,7 +172,9 @@ def _init_db() -> None:
     This function reads SQL commands from the 'createdb.sql' file and executes them
     using the SQLite cursor to initialize the database with necessary tables and schema.
     """
-    with open("createdb.sql", "r") as f:
+    base_dir = os.path.dirname(__file__)
+    schema_path = os.path.join(base_dir, "createdb.sql")
+    with open(schema_path, "r") as f:
         sql = f.read()
     with UseDB(db_name) as cursor:
         cursor.executescript(sql)
@@ -178,8 +188,10 @@ def check_db_exists():
     """
     logger.info("Check db")
     with UseDB(db_name) as cursor:
-        cursor.execute("SELECT name FROM sqlite_master "
-                    "WHERE type='table' AND name='Users'")
+        cursor.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='Users'"
+        )
         table_exists = cursor.fetchall()
         if table_exists:
             return
