@@ -9,11 +9,11 @@ import re
 from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
-from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
-from keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
+from .bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
+from .keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
 
-from logging_config import configure_logging
-import db
+from .logging_config import configure_logging
+from . import db
 
 configure_logging()
 
@@ -28,7 +28,13 @@ async def add_measurement(update: Update, data: dict) -> None:
     ``body_position``, ``arm_location``, and ``comment``.
     """
     logger.info("Persist measurement: start user_id=%s", update.effective_user.id)
-    measurements = data.get('measurements', {})
+    # Support both dict with 'measurements' and context-like object with user_data
+    if hasattr(data, 'user_data') and isinstance(data.user_data, dict):
+        measurements = data.user_data.get('measurements', {})
+    elif isinstance(data, dict):
+        measurements = data.get('measurements', {})
+    else:
+        measurements = {}
     pressure_list = measurements.get('pressure', [])
     pulse_list = measurements.get('pulse', [])
     body_position_text = measurements.get('body_position')
@@ -108,7 +114,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     # Direct DB access using UseDB from db
-    from db import UseDB, db_name
+    from .db import UseDB, db_name
     with UseDB(db_name) as cursor:
         cursor.execute(query, (user_id,))
         row = cursor.fetchone()

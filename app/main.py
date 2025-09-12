@@ -8,7 +8,15 @@ from telegram.request import HTTPXRequest
 
 from logging_config import configure_logging
 from handlers import start, help_command, echo, error_handler
-from measurement import start_add_measurement, blood_pressure, pulse, comment, body_position, arm_location, last_measurement
+from measurement import (
+    start_add_measurement,
+    blood_pressure,
+    pulse,
+    comment,
+    body_position,
+    arm_location,
+    last_measurement
+)
 configure_logging()
 
 logger = logging.getLogger(__name__)
