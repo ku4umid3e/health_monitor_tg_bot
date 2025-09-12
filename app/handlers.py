@@ -1,15 +1,10 @@
-import logging
-from html import escape
-from uuid import uuid4
+"""Command and message handlers for the Telegram bot.
 
-from telegram import (
-                    Update,
-                    InlineQueryResultArticle,
-                    InputTextMessageContent,
-                    InlineKeyboardButton,
-                    InlineKeyboardMarkup,
-                    )
-from telegram.constants import ParseMode
+Docstrings are unified in English; user-visible texts remain in Russian.
+"""
+import logging
+
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot_messages import WELCOME_MESSAGE
@@ -23,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ensure user exists in DB and log greeting event."""
     logger.info(f"Grate user{update.effective_user}, {update.message.chat.id}")
     print("User pressed start", type(update.effective_user.id), update.effective_user.id)
     user = db.get_user(update.effective_user)
@@ -31,48 +27,36 @@ def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends a message with three inline buttons attached."""
+    """Send welcome message and show the main keyboard."""
     greate_user(update=update, context=context)
-    reply_markup = InlineKeyboardMarkup(WLCOME_KEYBOARD)
-    await update.message.reply_text(WELCOME_MESSAGE, reply_markup=reply_markup)
+    await update.message.reply_text(
+        WELCOME_MESSAGE, reply_markup=ReplyKeyboardMarkup(
+            WLCOME_KEYBOARD,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            )
+        )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
+    """Respond to /help with a short help message."""
     logger.info("User click help")
     await update.message.reply_text("Help!")
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
+    """Echo back any non-command user message."""
     logger.info("User send message")
     await update.message.reply_text(update.message.text)
 
 
-async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the inline query. This is run when you type: @botusername <query>"""
-    query = update.inline_query.query
-    if not query:  # empty query should not be handled
-        return
-    results = [
-        InlineQueryResultArticle(
-            id=str(uuid4()),
-            title="Caps",
-            input_message_content=InputTextMessageContent(query.upper()),
-        ),
-        InlineQueryResultArticle(
-            id=str(uuid4()),
-            title="Bold",
-            input_message_content=InputTextMessageContent(
-                f"<b>{escape(query)}</b>", parse_mode=ParseMode.HTML
-            ),
-        ),
-        InlineQueryResultArticle(
-            id=str(uuid4()),
-            title="Italic",
-            input_message_content=InputTextMessageContent(
-                f"<i>{escape(query)}</i>", parse_mode=ParseMode.HTML
-            ),
-        ),
-    ]
-    await update.inline_query.answer(results)
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log unhandled exceptions and, if possible, notify the user."""
+    logger.exception("Unhandled exception: %s", context.error)
+    try:
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "Произошла сетевая ошибка. Попробуйте ещё раз, пожалуйста."
+            )
+    except Exception as inner_err:  # noqa: BLE001
+        logger.error("Failed to notify user about error: %s", inner_err)

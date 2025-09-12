@@ -1,11 +1,12 @@
-from telegram import InlineKeyboardButton
-
-
+"""Static keyboard layouts for Telegram reply keyboards."""
 WLCOME_KEYBOARD = [
-    [
-        InlineKeyboardButton("Записать результат измерения", callback_data="1"),
-    ],
-    [
-        InlineKeyboardButton("Посмотреть последний результат", callback_data="2")
-    ]
+    ["Записать результат измерения", "Посмотреть последний результат"]
+]
+
+BODY_POSITION_KEYBOARD = [
+    ["Стоя", "Сидя", "Лёжа", "Полу лёжа", "Не указано",]
+]
+
+ARM_LOCATION_KEYBOARD = [
+    ["Левая рука", "Правая рука", "Левое плечё", "Правое плечё", "Не указано",]
 ]

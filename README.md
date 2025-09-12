@@ -8,9 +8,9 @@
 
 [x] Сделать команду start.
 
-[ ] Сделать команду add_measurement
+[x] Сделать команду add_measurement
 
-[ ] Сделать команду last_measurement
+[x] Сделать команду last_measurement
 
 [ ] Сделать команду get_day_statistics
 
