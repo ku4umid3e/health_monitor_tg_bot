@@ -9,24 +9,31 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download source tarball (no external actions)
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${REPO}/tarball/${SHA} -o source.tar.gz
+          mkdir src
+          tar -xzf source.tar.gz -C src --strip-components=1
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Show Python version
+        run: python3 -V
 
       - name: Install dependencies
+        working-directory: src
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -e '.[dev]'
 
       - name: Run tests
-        run: pytest -q
+        working-directory: src
+        run: python3 -m pytest -q
 
