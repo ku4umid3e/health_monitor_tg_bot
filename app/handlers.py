@@ -48,3 +48,15 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo back any non-command user message."""
     logger.info("User send message")
     await update.message.reply_text(update.message.text)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log unhandled exceptions and, if possible, notify the user."""
+    logger.exception("Unhandled exception: %s", context.error)
+    try:
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "Произошла сетевая ошибка. Попробуйте ещё раз, пожалуйста."
+            )
+    except Exception as inner_err:  # noqa: BLE001
+        logger.error("Failed to notify user about error: %s", inner_err)

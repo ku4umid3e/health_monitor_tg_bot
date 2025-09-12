@@ -67,8 +67,9 @@ def create_user(effective_user):
                 "Last_name": effective_user.last_name,
                 "Username": effective_user.username,
             }
-    insert('Users', user)
-    print(f"Inserted user {effective_user.id}")
+    user_id = insert('Users', user)
+    logger.info(f"Inserted user {effective_user.id} with id {user_id}")
+    user["UserID"] = user_id
     return user
 
 
@@ -98,7 +99,7 @@ def delete(table: str, row_id: int) -> None:
         cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
 
 
-def insert(table: str, column_values: Dict):
+def insert(table: str, column_values: Dict) -> int:
     """
     Inserts a new row into the specified table with the given column values.
 
@@ -123,14 +124,15 @@ def insert(table: str, column_values: Dict):
 
     """
     columns = ', '.join(column_values.keys())
-    values = [tuple(column_values.values())]
+    values = tuple(column_values.values())
     placeholders = ", ".join("?" * len(column_values.keys()))
     with UseDB(db_name) as cursor:
-        cursor.executemany(
+        cursor.execute(
             f"INSERT INTO {table} "
             f"({columns}) "
             f"VALUES ({placeholders})",
             values)
+        return cursor.lastrowid
 
 
 def fetchall(table: str, columns: List[str]) -> List[Tuple]:
