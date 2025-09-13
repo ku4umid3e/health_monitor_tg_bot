@@ -9,11 +9,12 @@ import re
 from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
-from .bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
-from .keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
+from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
+from keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
 
-from .logging_config import configure_logging
-from . import db
+from logging_config import configure_logging
+import db
+from db import UseDB, db_name
 
 configure_logging()
 
@@ -95,7 +96,7 @@ async def add_measurement(update: Update, data: dict) -> None:
     logger.info("Persist measurement: done user_id=%s", update.effective_user.id)
 
 
-async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Fetch and show the last measurement for the current user."""
     user = db.get_user(update.effective_user)
     user_id = user.get('UserID')
@@ -113,9 +114,9 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ORDER BY M.Timestamp DESC LIMIT 1"
     )
 
-    # Direct DB access using UseDB from db
-    from .db import UseDB, db_name
-    with UseDB(db_name) as cursor:
+    # Use provided db_path or fallback to global db_name
+    target_db = db_path or db_name
+    with UseDB(target_db) as cursor:
         cursor.execute(query, (user_id,))
         row = cursor.fetchone()
 

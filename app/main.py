@@ -28,9 +28,9 @@ def main() -> None:
     """Start the bot application and register handlers."""
     # Configure HTTPX client with timeouts to improve network resilience
     request = HTTPXRequest(
-        connect_timeout=10.0,
-        read_timeout=20.0,
-        write_timeout=20.0,
+        connect_timeout=30.0,
+        read_timeout=60.0,
+        write_timeout=30.0,
     )
     # Create the Application and pass it your bot's token and custom request
     app = Application.builder().token(TOKEN).request(request).build()
