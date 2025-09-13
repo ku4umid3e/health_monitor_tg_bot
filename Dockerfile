@@ -16,7 +16,7 @@ ENV PATH="/root/.cargo/bin:$PATH"
 RUN adduser -D bot-user
 
 # Копирование файлов конфигурации uv
-COPY pyproject.toml uv.lock README.md /temp/
+COPY pyproject.toml uv.lock /temp/
 
 # Установка зависимостей с помощью uv
 WORKDIR /temp
