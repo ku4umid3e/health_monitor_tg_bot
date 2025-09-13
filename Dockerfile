@@ -1,5 +1,5 @@
 FROM python:3.11-alpine
-
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Установка системных зависимостей
 RUN apk add --no-cache \
     gcc \
