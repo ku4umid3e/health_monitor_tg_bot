@@ -135,3 +135,4 @@ pyrightconfig.json
 .vscode/
 .flake8
 *.db
+data/

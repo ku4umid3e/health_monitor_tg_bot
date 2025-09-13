@@ -8,7 +8,7 @@ import os
 
 configure_logging()
 logger = logging.getLogger(__name__)
-db_name = "measurements.db"
+db_name = "/app/data/measurements.db"
 
 
 class ConnectionError(Exception):
