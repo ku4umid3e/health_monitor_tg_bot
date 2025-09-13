@@ -47,25 +47,25 @@ jobs:
 
     - name: Stop existing containers
       run: |
-        docker-compose down || true
+        docker compose down || true
         docker system prune -f || true
 
     - name: Build and start containers
       run: |
-        docker-compose build --no-cache
-        docker-compose up -d
+        docker compose build --no-cache
+        docker compose up -d
 
     - name: Wait for service to be ready
       run: |
         sleep 20
-        docker-compose ps
+        docker compose ps
 
     - name: Check container health
       run: |
         echo "=== Container Status ==="
-        docker-compose ps
+        docker compose ps
         echo "=== Application Logs ==="
-        docker-compose logs --tail=30 app
+        docker compose logs --tail=30 app
         echo "=== Health Check ==="
         docker ps | grep health_monitor_bot || echo "Container not found"
         echo "=== Container Health Status ==="
