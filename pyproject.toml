@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "health-monitor-tg-bot"
 version = "0.1.0"
 description = "Telegram bot for tracking health measurements"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "anyio==4.2.0",
