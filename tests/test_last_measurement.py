@@ -5,7 +5,7 @@ import pytest
 async def test_last_measurement_no_records(temp_db, dummy_update, dummy_context):
     from app import measurement
 
-    await measurement.last_measurement(dummy_update, dummy_context)
+    await measurement.last_measurement(dummy_update, dummy_context, temp_db)
 
     # First reply should state that there are no records
     assert dummy_update.message.texts[0].startswith("Записей ещё нет.")
@@ -31,7 +31,7 @@ async def test_last_measurement_with_record(temp_db, dummy_update, dummy_context
         'Pulse': 65,
     })
 
-    await measurement.last_measurement(dummy_update, dummy_context)
+    await measurement.last_measurement(dummy_update, dummy_context, temp_db)
 
     text = "\n".join(dummy_update.message.texts)
     assert "Последнее измерение:" in text

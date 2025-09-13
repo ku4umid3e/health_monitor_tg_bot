@@ -96,7 +96,7 @@ async def add_measurement(update: Update, data: dict) -> None:
     logger.info("Persist measurement: done user_id=%s", update.effective_user.id)
 
 
-async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Fetch and show the last measurement for the current user."""
     user = db.get_user(update.effective_user)
     user_id = user.get('UserID')
@@ -114,8 +114,9 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ORDER BY M.Timestamp DESC LIMIT 1"
     )
 
-    # Direct DB access using UseDB from db
-    with UseDB(db_name) as cursor:
+    # Use provided db_path or fallback to global db_name
+    target_db = db_path or db_name
+    with UseDB(target_db) as cursor:
         cursor.execute(query, (user_id,))
         row = cursor.fetchone()
 
