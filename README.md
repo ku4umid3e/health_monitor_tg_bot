@@ -14,3 +14,4 @@
 
 [ ] Сделать команду get_day_statistics
 
+# Test commit to trigger CI
