@@ -8,7 +8,7 @@ import os
 
 configure_logging()
 logger = logging.getLogger(__name__)
-db_name = "/app/data/measurements.db"
+db_name = os.getenv("DB_PATH", "/app/data/measurements.db")
 
 
 class ConnectionError(Exception):
@@ -201,4 +201,6 @@ def check_db_exists():
         _init_db()
 
 
-check_db_exists()
+# Only check DB exists if not in test environment
+if not os.getenv("PYTEST_CURRENT_TEST"):
+    check_db_exists()
