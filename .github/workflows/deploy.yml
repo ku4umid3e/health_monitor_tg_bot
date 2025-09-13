@@ -1,0 +1,72 @@
+name: Deploy Health Monitor Bot
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run tests
+      run: |
+        uv run pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        # Создаем .env файл если его нет
+        if [ ! -f .env ]; then
+          echo "TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" > .env
+        fi
+
+    - name: Stop existing containers
+      run: |
+        docker-compose down || true
+        docker system prune -f || true
+
+    - name: Build and start containers
+      run: |
+        docker-compose build --no-cache
+        docker-compose up -d
+
+    - name: Wait for service to be ready
+      run: |
+        sleep 20
+        docker-compose ps
+
+    - name: Check container health
+      run: |
+        echo "=== Container Status ==="
+        docker-compose ps
+        echo "=== Application Logs ==="
+        docker-compose logs --tail=30 app
+        echo "=== Health Check ==="
+        docker ps | grep health_monitor_bot || echo "Container not found"
+        echo "=== Container Health Status ==="
+        docker inspect health_monitor_bot --format='{{.State.Health.Status}}' || echo "Health check not available"
