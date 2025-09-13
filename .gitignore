@@ -135,4 +135,3 @@ pyrightconfig.json
 .vscode/
 .flake8
 *.db
-uv.lock
