@@ -25,8 +25,8 @@ RUN uv sync --frozen --no-dev
 # Копирование исходного кода
 COPY app /app
 
-# Создание директории для логов
-RUN mkdir -p /app/logs && chown -R bot-user:bot-user /app
+# Создание директорий и установка прав
+RUN mkdir -p /app/logs /app/data && chown -R bot-user:bot-user /app
 
 # Переключение на непривилегированного пользователя
 USER bot-user
@@ -34,7 +34,7 @@ USER bot-user
 # Переменные окружения
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # Команда по умолчанию
 CMD ["uv", "run", "python", "main.py"]
