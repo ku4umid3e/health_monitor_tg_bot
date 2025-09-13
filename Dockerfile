@@ -16,15 +16,14 @@ ENV PATH="/root/.cargo/bin:$PATH"
 RUN adduser -D bot-user
 
 # Копирование файлов конфигурации uv
-COPY pyproject.toml uv.lock /temp/
+COPY pyproject.toml uv.lock /app/
 
 # Установка зависимостей с помощью uv
-WORKDIR /temp
+WORKDIR /app
 RUN uv sync --frozen --no-dev
 
 # Копирование исходного кода
 COPY app /app
-WORKDIR /app
 
 # Создание директории для логов
 RUN mkdir -p /app/logs && chown -R bot-user:bot-user /app
