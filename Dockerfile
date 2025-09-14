@@ -10,10 +10,10 @@ RUN apk add --no-cache \
 
 # Установка uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
 
 # Создание пользователя для безопасности
-RUN adduser -D bot-user
+RUN adduser -u 1000 --disabled-password --gecos "" bot-user
+ENV PATH="/home/bot-user/.cargo/bin:$PATH"
 
 # Копирование файлов конфигурации uv
 COPY pyproject.toml uv.lock /app/
