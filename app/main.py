@@ -15,7 +15,8 @@ from measurement import (
     comment,
     body_position,
     arm_location,
-    last_measurement
+    last_measurement,
+    get_day_statistics
 )
 configure_logging()
 
@@ -52,6 +53,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("last", last_measurement))
+    app.add_handler(CommandHandler("daystat", get_day_statistics))
     # Register button handler for "Посмотреть последний результат"
     app.add_handler(MessageHandler(filters.Regex('^(Посмотреть последний результат)$'), last_measurement))
 

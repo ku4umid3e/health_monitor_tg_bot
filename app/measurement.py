@@ -149,9 +149,60 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     )
 
 
-def get_day_statistics():
+async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Return aggregated statistics for the last day."""
-    pass
+    user_id = db.get_user(update.effective_user).get('UserID')
+    query = (
+        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
+        "BP.PositionName, AL.LocationName, C.CommentText "
+        "FROM Measurements M "
+        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
+        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
+        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
+        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", \"-3 day\") "
+        "ORDER BY M.Timestamp DESC"
+        )
+
+    target_db = db_path or db_name
+    with UseDB(target_db) as cursor:
+        cursor.execute(query, (user_id,))
+        rows = cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text(
+            "Записей ещё нет.",
+            reply_markup=ReplyKeyboardMarkup(
+                WLCOME_KEYBOARD,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+            ),
+        )
+        return
+
+    text = '📊 Измерения за 3 дня:\n\n'
+
+    current_day = None
+    for row in rows:
+        _, ts, sys, dia, pls, pos, arm, com = row
+        day = ts.split()[0] if isinstance(ts, str) else str(ts)
+        if day != current_day:
+            current_day = day
+            text += f'\n📅 {current_day}\n'
+        time_part = ts.split()[1][:5] if isinstance(ts, str) else str(ts)
+        text += f'  ⏰ {time_part} - АД: {sys}/{dia}, Пульс: {pls}\n'
+
+    await update.message.reply_text(
+        text,
+        reply_markup=ReplyKeyboardMarkup(
+            WLCOME_KEYBOARD,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+        ),
+    )
+
+
+
 
 
 def get_week_statistic():
