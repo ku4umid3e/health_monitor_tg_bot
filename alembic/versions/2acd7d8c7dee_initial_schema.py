@@ -8,7 +8,6 @@ Create Date: 2025-09-19 11:50:31.318442
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -99,7 +98,6 @@ def upgrade() -> None:
             FOREIGN KEY (MeasurementID) REFERENCES Measurements(MeasurementID)
         );
     """)
-
 
 
 def downgrade() -> None:
