@@ -24,7 +24,8 @@ def temp_db(monkeypatch):
     fd, path = tempfile.mkstemp(prefix="test_meas_", suffix=".db")
     os.close(fd)
     monkeypatch.setattr(app_db, "db_name", path, raising=True)
-    app_db._init_db()
+    # Initialize schema via Alembic migrations
+    app_db.run_migrations(path)
     try:
         yield path
     finally:

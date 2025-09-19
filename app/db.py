@@ -4,6 +4,9 @@ import sqlite3
 
 from logging_config import configure_logging
 import os
+from pathlib import Path
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 
 
 configure_logging()
@@ -169,17 +172,29 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     return result
 
 
-def _init_db() -> None:
+def _sqlite_url(path: str) -> str:
+    """Return proper sqlite URL for Alembic given an absolute or relative file path."""
+    p = Path(path)
+    # Ensure parent directory exists (useful in Docker fresh start)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    # sqlite absolute path must have four slashes
+    return f"sqlite:///{p.as_posix()}" if not p.is_absolute() else f"sqlite:////{p.as_posix()}"
+
+
+def run_migrations(target_db_path: str | None = None) -> None:
+    """Run Alembic migrations up to head for the provided DB path.
+
+    If Alembic is not available (dev/test without it), fall back to legacy SQL init.
     """
-    This function reads SQL commands from the 'createdb.sql' file and executes them
-    using the SQLite cursor to initialize the database with necessary tables and schema.
-    """
-    base_dir = os.path.dirname(__file__)
-    schema_path = os.path.join(base_dir, "createdb.sql")
-    with open(schema_path, "r") as f:
-        sql = f.read()
-    with UseDB(db_name) as cursor:
-        cursor.executescript(sql)
+    path = target_db_path or db_name
+    # Build alembic config pointing to project-level alembic.ini
+    project_root = Path(__file__).resolve().parents[1]
+    alembic_ini = project_root / "alembic.ini"
+    cfg = AlembicConfig(str(alembic_ini))
+    # Override sqlalchemy.url dynamically for the requested DB path
+    cfg.set_main_option("sqlalchemy.url", _sqlite_url(path))
+    # Run upgrade to head
+    alembic_command.upgrade(cfg, "head")
 
 
 def check_db_exists():
@@ -197,8 +212,8 @@ def check_db_exists():
         table_exists = cursor.fetchall()
         if table_exists:
             return
-        logger.info("Init db")
-        _init_db()
+        logger.info("Init db via Alembic")
+        run_migrations(db_name)
 
 
 # Only check DB exists if not in test environment
