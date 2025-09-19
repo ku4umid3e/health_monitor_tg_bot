@@ -8,7 +8,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot_messages import WELCOME_MESSAGE
-from keyboard import WLCOME_KEYBOARD
+from keyboards import WLCOME_KEYBOARD
 import db
 from logging_config import configure_logging
 

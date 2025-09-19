@@ -10,7 +10,7 @@ from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
-from keyboard import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
+from keyboards import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
 
 from logging_config import configure_logging
 import db
@@ -30,12 +30,10 @@ async def add_measurement(update: Update, data: dict) -> None:
     """
     logger.info("Persist measurement: start user_id=%s", update.effective_user.id)
     # Support both dict with 'measurements' and context-like object with user_data
-    if hasattr(data, 'user_data') and isinstance(data.user_data, dict):
-        measurements = data.user_data.get('measurements', {})
-    elif isinstance(data, dict):
-        measurements = data.get('measurements', {})
+    if hasattr(data, 'user_data'):
+        measurements = getattr(data, 'user_data', {}).get('measurements', {})
     else:
-        measurements = {}
+        measurements = data.get('measurements', {})
     pressure_list = measurements.get('pressure', [])
     pulse_list = measurements.get('pulse', [])
     body_position_text = measurements.get('body_position')
@@ -200,9 +198,6 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
             resize_keyboard=True,
         ),
     )
-
-
-
 
 
 def get_week_statistic():
