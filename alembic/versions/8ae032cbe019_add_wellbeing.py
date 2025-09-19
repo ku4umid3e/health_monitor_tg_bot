@@ -31,6 +31,9 @@ def upgrade() -> None:
     op.execute("""
         ALTER TABLE Measurements ADD COLUMN WellBeingID INTEGER REFERENCES WellBeing(WellBeingID);
     """)
+    op.execute("""
+        UPDATE Measurements SET WellBeingID = (SELECT WellBeingID FROM WellBeing WHERE Name = 'Нормально') WHERE WellBeingID IS NULL;
+    """)
 
 
 def downgrade() -> None:

@@ -15,6 +15,7 @@ from measurement import (
     comment,
     body_position,
     arm_location,
+    well_being,
     last_measurement,
     get_day_statistics
 )
@@ -43,6 +44,7 @@ def main() -> None:
             "pulse": [MessageHandler(filters.TEXT, pulse)],
             "body_position": [MessageHandler(filters.TEXT, body_position)],
             "arm_location": [MessageHandler(filters.TEXT, arm_location)],
+            "well_being": [MessageHandler(filters.TEXT, well_being)],
             "comment": [MessageHandler(filters.TEXT, comment)],
         },
         fallbacks=[],

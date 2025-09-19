@@ -1,6 +1,6 @@
 """Static keyboard layouts for Telegram reply keyboards."""
 WLCOME_KEYBOARD = [
-    ["Записать результат измерения", "Посмотреть последний результат"]
+    ["Записать результат измерения"], ["Посмотреть последний результат"]
 ]
 
 BODY_POSITION_KEYBOARD = [
@@ -9,4 +9,8 @@ BODY_POSITION_KEYBOARD = [
 
 ARM_LOCATION_KEYBOARD = [
     ["Левая рука", "Правая рука", "Левое плечо", "Правое плечо", "Не указано",]
+]
+
+WELL_BEING_KEYBOARD = [
+    ["Хорошо", "Нормально", "Плохо"]
 ]

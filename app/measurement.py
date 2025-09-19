@@ -10,7 +10,12 @@ from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
-from keyboards import BODY_POSITION_KEYBOARD, ARM_LOCATION_KEYBOARD, WLCOME_KEYBOARD
+from keyboards import (
+    BODY_POSITION_KEYBOARD,
+    ARM_LOCATION_KEYBOARD,
+    WLCOME_KEYBOARD,
+    WELL_BEING_KEYBOARD
+)
 
 from logging_config import configure_logging
 import db
@@ -38,6 +43,7 @@ async def add_measurement(update: Update, data: dict) -> None:
     pulse_list = measurements.get('pulse', [])
     body_position_text = measurements.get('body_position')
     arm_location_text = measurements.get('arm_location')
+    well_being_text = measurements.get('well_being')
     comment_text = measurements.get('comment', '')
 
     try:
@@ -62,10 +68,15 @@ async def add_measurement(update: Update, data: dict) -> None:
         'Правое плечё': 4,
         'Не указано': 5,
     }
+    well_being_map = {
+        'Хорошо': 1,
+        'Нормально': 2,
+        'Плохо': 3,
+    }
 
     body_position_id = body_position_map.get(body_position_text, 5)
     arm_location_id = arm_location_map.get(arm_location_text, 5)
-
+    well_being_id = well_being_map.get(well_being_text, 2)
     user = db.get_user(update.effective_user)
     user_id = user.get('UserID')
 
@@ -78,6 +89,7 @@ async def add_measurement(update: Update, data: dict) -> None:
         'UserID': user_id,
         'ArmLocationID': arm_location_id,
         'BodyPositionID': body_position_id,
+        'WellBeingID': well_being_id,
         'CommentID': comment_id,
     })
     logger.info("Inserted measurement id=%s user_id=%s", measurement_id, update.effective_user.id)
@@ -102,12 +114,13 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     # Simple join to get the latest measurement details
     query = (
         "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
         "FROM Measurements M "
         "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
         "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
         "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
         "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
         "WHERE M.UserID = ? "
         "ORDER BY M.Timestamp DESC LIMIT 1"
     )
@@ -129,12 +142,13 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         )
         return
 
-    _, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text = row
+    _, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
     text = (
         "Последнее измерение:\n"
         f"Дата/время: {ts}\n"
         f"АД: {sys_p}/{dia_p}, Пульс: {pulse}\n"
         f"Положение: {pos_name or 'Не указано'}, Манжета: {arm_name or 'Не указано'}\n"
+        f"Самочувствие: {well_being_name or 'Не указано'}\n"
         f"Комментарий: {comment_text or '—'}"
     )
     await update.message.reply_text(
@@ -152,12 +166,13 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
     user_id = db.get_user(update.effective_user).get('UserID')
     query = (
         "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
         "FROM Measurements M "
         "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
         "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
         "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
         "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
         "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", \"-3 day\") "
         "ORDER BY M.Timestamp DESC"
         )
@@ -182,13 +197,13 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     current_day = None
     for row in rows:
-        _, ts, sys, dia, pls, pos, arm, com = row
+        _, ts, sys, dia, pls, pos, arm, com, well_being_name = row
         day = ts.split()[0] if isinstance(ts, str) else str(ts)
         if day != current_day:
             current_day = day
             text += f'\n📅 {current_day}\n'
         time_part = ts.split()[1][:5] if isinstance(ts, str) else str(ts)
-        text += f'  ⏰ {time_part} - АД: {sys}/{dia}, Пульс: {pls}\n'
+        text += f'  ⏰ {time_part} - АД: {sys}/{dia}, Пульс: {pls}, Самочувствие: {well_being_name or "Не указано"}\n'
 
     await update.message.reply_text(
         text,
@@ -268,8 +283,19 @@ async def arm_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['measurements']['arm_location'] = update.message.text
     logger.info("Selected arm_location: %s user_id=%s", update.message.text, update.effective_user.id)
 
+    reply_markup = ReplyKeyboardMarkup(WELL_BEING_KEYBOARD, resize_keyboard=True)
     await update.message.reply_text(
-        "Последний вопрос, как самочуствие?\n(Любые жалобы).",
+        "Как самочувствие?",
+        reply_markup=reply_markup
+    )
+    return "well_being"
+
+
+async def well_being(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['measurements']['well_being'] = update.message.text
+    logger.info("Selected well_being: %s user_id=%s", update.message.text, update.effective_user.id)
+    await update.message.reply_text(
+        "Любые жалобы или заметки? (можно пропустить)",
         reply_markup=ReplyKeyboardRemove()
     )
     return "comment"
@@ -285,6 +311,7 @@ async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Супер! Я записал измерение:\n'
         f"АД: {query['pressure'][0]}/{query['pressure'][1]}, Пульс: {query['pulse'][0]}\n"
         f"Положение: {query['body_position']}, Манжета: {query['arm_location']}\n"
+        f"Самочувствие: {query['well_being']}\n"
         f"Комментарий: {query['comment']}"
     )
     logger.info("Send receipt to user_id=%s: %s", update.effective_user.id, receipt.replace('\n', ' | '))

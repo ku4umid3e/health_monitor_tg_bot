@@ -22,6 +22,7 @@ async def test_last_measurement_with_record(temp_db, dummy_update, dummy_context
         'UserID': user['UserID'],
         'ArmLocationID': 1,
         'BodyPositionID': 2,
+        'WellBeingID': 2,
         'CommentID': comment_id,
     })
     db.insert('MeasureDetails', {
@@ -36,3 +37,4 @@ async def test_last_measurement_with_record(temp_db, dummy_update, dummy_context
     text = "\n".join(dummy_update.message.texts)
     assert "Последнее измерение:" in text
     assert "АД: 110/70, Пульс: 65" in text
+    assert "Самочувствие: Нормально" in text
