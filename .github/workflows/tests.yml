@@ -37,5 +37,5 @@ jobs:
           uv sync  --dev
       - name: Run tests
         working-directory: src
-        run: python3 -m pytest -q
+        run: uv run python3 -m pytest -q
 
