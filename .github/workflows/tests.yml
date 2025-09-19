@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download source tarball (no external actions)
         env:
           REPO: ${{ github.repository }}
@@ -26,6 +28,8 @@ jobs:
 
       - name: Show Python version
         run: python3 -V
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
         working-directory: src
