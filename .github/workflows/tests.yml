@@ -30,9 +30,7 @@ jobs:
       - name: Install dependencies
         working-directory: src
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -e '.[dev]'
-
+          uv sync  --dev
       - name: Run tests
         working-directory: src
         run: python3 -m pytest -q
