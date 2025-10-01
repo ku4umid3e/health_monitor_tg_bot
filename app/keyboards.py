@@ -1,6 +1,12 @@
-"""Static keyboard layouts for Telegram reply keyboards."""
+"""./app/keyboards.py
+Static keyboard layouts for Telegram reply keyboards."""
+from telegram import InlineKeyboardButton
+
+
 WLCOME_KEYBOARD = [
-    ["Записать результат измерения"], ["Посмотреть последний результат"]
+    [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
+    [InlineKeyboardButton('Посмотреть последний результат', callback_data='last_measurement')],
+    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
 ]
 
 BODY_POSITION_KEYBOARD = [

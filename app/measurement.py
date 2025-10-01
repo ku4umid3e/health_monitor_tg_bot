@@ -1,4 +1,5 @@
-"""Conversation flow and helpers for adding health measurements.
+"""./app/measurement.py
+Conversation flow and helpers for adding health measurements.
 
 All user-facing messages remain in Russian (per product requirement), while
 internal comments and docstrings are standardized in clear English.
@@ -6,7 +7,7 @@ internal comments and docstrings are standardized in clear English.
 import logging
 import re
 
-from telegram import ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
@@ -131,13 +132,13 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         cursor.execute(query, (user_id,))
         row = cursor.fetchone()
 
+    logger.info(f'Запрос вернул \n {row}')
+
     if not row:
         await update.message.reply_text(
             "Записей ещё нет.",
-            reply_markup=ReplyKeyboardMarkup(
-                WLCOME_KEYBOARD,
-                one_time_keyboard=True,
-                resize_keyboard=True,
+            reply_markup=InlineKeyboardMarkup(
+                WLCOME_KEYBOARD
             ),
         )
         return
@@ -151,12 +152,12 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         f"Самочувствие: {well_being_name or 'Не указано'}\n"
         f"Комментарий: {comment_text or '—'}"
     )
-    await update.message.reply_text(
+
+    logger.info(f'Check update.message \n{update.message}\n{update}\n{dir(update)}')
+    await update.callback_query.edit_message_text(
         text,
-        reply_markup=ReplyKeyboardMarkup(
-            WLCOME_KEYBOARD,
-            one_time_keyboard=True,
-            resize_keyboard=True,
+        reply_markup=InlineKeyboardMarkup(
+            WLCOME_KEYBOARD
         ),
     )
 
@@ -185,10 +186,8 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if not rows:
         await update.message.reply_text(
             "Записей ещё нет.",
-            reply_markup=ReplyKeyboardMarkup(
-                WLCOME_KEYBOARD,
-                one_time_keyboard=True,
-                resize_keyboard=True,
+            reply_markup=InlineKeyboardMarkup(
+                WLCOME_KEYBOARD
             ),
         )
         return
@@ -205,12 +204,10 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
         time_part = ts.split()[1][:5] if isinstance(ts, str) else str(ts)
         text += f'  ⏰ {time_part} - АД: {sys}/{dia}, Пульс: {pls}, Самочувствие: {well_being_name or "Не указано"}\n'
 
-    await update.message.reply_text(
+    await update.callback_query.edit_message_text(
         text,
-        reply_markup=ReplyKeyboardMarkup(
-            WLCOME_KEYBOARD,
-            one_time_keyboard=True,
-            resize_keyboard=True,
+        reply_markup=InlineKeyboardMarkup(
+            WLCOME_KEYBOARD
         ),
     )
 
@@ -227,8 +224,8 @@ def get_month_statistic():
 
 async def start_add_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the measurement conversation and prompt for blood pressure."""
-    logger.info("Start add measurement: user_id=%s chat_id=%s", update.effective_user.id, update.message.chat.id)
-    await update.message.reply_text(
+    logger.info("Start add measurement: user_id=%s chat_id=%s", update.effective_user.id, update.effective_chat.id)
+    await update.effective_message.reply_text(
         INPUT_PRESSURE,
         reply_markup=ReplyKeyboardRemove(),
         )
@@ -317,10 +314,8 @@ async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("Send receipt to user_id=%s: %s", update.effective_user.id, receipt.replace('\n', ' | '))
     await update.message.reply_text(
         receipt,
-        reply_markup=ReplyKeyboardMarkup(
-            WLCOME_KEYBOARD,
-            one_time_keyboard=True,
-            resize_keyboard=True,
+        reply_markup=InlineKeyboardMarkup(
+            WLCOME_KEYBOARD
         ),
     )
     return ConversationHandler.END
