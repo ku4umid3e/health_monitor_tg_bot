@@ -203,7 +203,7 @@ def check_db_exists():
     in the database. If the table is found, the function returns without taking any action.
     If the table does not exist, it calls the '_init_db()' function to initialize the database.
     """
-    logger.info("Check db")
+    logger.info(f"Check db {db_name}")
     with UseDB(db_name) as cursor:
         cursor.execute(
             "SELECT name FROM sqlite_master "
