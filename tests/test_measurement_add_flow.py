@@ -58,14 +58,15 @@ async def test_full_measurement_dialog_flow(temp_db, dummy_update, dummy_context
     from app import bot_messages
     from telegram.ext import ConversationHandler
 
-    # Mock reply_text to capture bot's responses
+    # Mock reply_text to capture bot's responses (start uses effective_message)
     mocker.patch.object(dummy_update.message, 'reply_text', autospec=True)
+    mocker.patch.object(dummy_update.effective_message, 'reply_text', autospec=True)
 
     # 1. Start the conversation
     dummy_update.message.text = "Записать результат измерения"
     result = await measurement.start_add_measurement(dummy_update, dummy_context)
     assert result == "blood_pressure"
-    dummy_update.message.reply_text.assert_called_with(
+    dummy_update.effective_message.reply_text.assert_called_with(
         bot_messages.INPUT_PRESSURE,
         reply_markup=mocker.ANY  # ReplyKeyboardRemove is sent here
     )
@@ -153,12 +154,13 @@ async def test_full_measurement_dialog_invalid_pressure(temp_db, dummy_update, d
     from app import bot_messages
 
     mocker.patch.object(dummy_update.message, 'reply_text', autospec=True)
+    mocker.patch.object(dummy_update.effective_message, 'reply_text', autospec=True)
 
     # 1. Start the conversation
     dummy_update.message.text = "Записать результат измерения"
     result = await measurement.start_add_measurement(dummy_update, dummy_context)
     assert result == "blood_pressure"
-    dummy_update.message.reply_text.assert_called_with(
+    dummy_update.effective_message.reply_text.assert_called_with(
         bot_messages.INPUT_PRESSURE,
         reply_markup=mocker.ANY
     )
@@ -186,6 +188,7 @@ async def test_full_measurement_dialog_invalid_pulse(temp_db, dummy_update, dumm
     from app import bot_messages
 
     mocker.patch.object(dummy_update.message, 'reply_text', autospec=True)
+    mocker.patch.object(dummy_update.effective_message, 'reply_text', autospec=True)
 
     # 1. Start the conversation
     dummy_update.message.text = "Записать результат измерения"

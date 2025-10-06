@@ -34,7 +34,8 @@ async def test_last_measurement_with_record(temp_db, dummy_update, dummy_context
 
     await measurement.last_measurement(dummy_update, dummy_context, temp_db)
 
-    text = "\n".join(dummy_update.message.texts)
+    # Now message is edited via inline callback flow
+    text = "\n".join(dummy_update.callback_query.edited_texts)
     assert "Последнее измерение:" in text
     assert "АД: 110/70, Пульс: 65" in text
     assert "Самочувствие: Нормально" in text

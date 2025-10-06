@@ -46,6 +46,21 @@ class DummyMessage:
         self.kwargs.append(kwargs)
 
 
+class DummyCallbackQuery:
+    def __init__(self):
+        self.message = DummyMessage()
+        self.edited_texts = []
+        self.edit_kwargs = []
+
+    async def answer(self):
+        # No-op for tests
+        return
+
+    async def edit_message_text(self, text, **kwargs):
+        self.edited_texts.append(text)
+        self.edit_kwargs.append(kwargs)
+
+
 class DummyUser:
     def __init__(self, user_id=1, first_name="Test", last_name="User", username="tester"):
         self.id = user_id
@@ -59,6 +74,9 @@ def dummy_update():
     update = SimpleNamespace()
     update.effective_user = DummyUser(user_id=999)
     update.message = DummyMessage()
+    update.callback_query = DummyCallbackQuery()
+    update.effective_message = update.callback_query.message
+    update.effective_chat = SimpleNamespace(id=123)
     return update
 
 
