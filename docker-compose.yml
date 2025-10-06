@@ -12,8 +12,8 @@ services:
       - app-data:/app/data
     environment:
       - TOKEN=${TOKEN}
-      - DB_PATH=data/measurements.db
-      - ALEMBIC_INI=/alembic.ini
+      - DB_PATH=/app/data/measurements.db
+      - ALEMBIC_INI=/app/alembic.ini
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('https://api.telegram.org/bot${TOKEN}/getMe', timeout=5)"]
       interval: 30s
