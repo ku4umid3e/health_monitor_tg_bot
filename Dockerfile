@@ -24,6 +24,7 @@ RUN uv sync --frozen --no-dev
 
 # Копирование исходного кода
 COPY app /app
+COPY alembic.ini alembic /app/
 
 # Создание директорий и установка прав
 RUN mkdir -p /app/logs /app/data && chown -R bot-user:bot-user /app
@@ -37,5 +38,4 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:$PATH"
 
 # Команда по умолчанию
-CMD ["cd", "..", "&&", "uv", "run", "alembic", "upgrade", "head"]
 CMD ["uv", "run", "python", "main.py"]
