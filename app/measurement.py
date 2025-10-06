@@ -224,6 +224,7 @@ def get_month_statistic():
 
 async def start_add_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the measurement conversation and prompt for blood pressure."""
+    await update.callback_query.answer()
     logger.info("Start add measurement: user_id=%s chat_id=%s", update.effective_user.id, update.effective_chat.id)
     await update.effective_message.reply_text(
         INPUT_PRESSURE,

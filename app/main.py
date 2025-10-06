@@ -62,7 +62,8 @@ def main() -> None:
             "comment": [MessageHandler(filters.TEXT, comment)],
         },
         fallbacks=[],
-        per_message=True
+        per_chat=True,
+        per_user=True,
     )
 
     # Register command handlers
