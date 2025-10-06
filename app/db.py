@@ -194,6 +194,7 @@ def run_migrations(target_db_path: str | None = None) -> None:
     cfg = AlembicConfig(str(alembic_ini))
     # Override sqlalchemy.url dynamically for the requested DB path
     cfg.set_main_option("sqlalchemy.url", _sqlite_url(path))
+    logger.info(f"Alembic config {cfg}")
     # Run upgrade to head
     alembic_command.upgrade(cfg, "head")
 
