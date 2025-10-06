@@ -187,10 +187,19 @@ def run_migrations(target_db_path: str | None = None) -> None:
     If Alembic is not available (dev/test without it), fall back to legacy SQL init.
     """
     path = target_db_path or db_name
-    # Build alembic config pointing to project-level alembic.ini
-    project_root = Path(__file__).resolve().parents[1]
-    logger.info(f"Project root {project_root}")
-    alembic_ini = project_root / "alembic.ini"
+    # Resolve alembic.ini location with sane defaults
+    env_ini = os.getenv("ALEMBIC_INI")
+    if env_ini and Path(env_ini).is_file():
+        alembic_ini = Path(env_ini)
+    else:
+        app_dir = Path(__file__).resolve().parent  # typically /app
+        # Prefer /app/alembic.ini inside container, fallback to repo root
+        candidates = [
+            app_dir / "alembic.ini",
+            app_dir.parent / "alembic.ini",
+        ]
+        alembic_ini = next((p for p in candidates if p.is_file()), candidates[0])
+    logger.info(f"Using alembic.ini at {alembic_ini}")
     cfg = AlembicConfig(str(alembic_ini))
     # Override sqlalchemy.url dynamically for the requested DB path
     cfg.set_main_option("sqlalchemy.url", _sqlite_url(path))
