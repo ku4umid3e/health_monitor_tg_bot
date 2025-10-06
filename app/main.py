@@ -1,13 +1,26 @@
-"""Application entrypoint for the Telegram bot."""
+"""./app/main.py
+Application entrypoint for the Telegram bot."""
 import os
 import logging
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+from telegram import CallbackQuery, Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ConversationHandler,
+    CallbackQueryHandler,
+)
 from telegram.request import HTTPXRequest
 
 from logging_config import configure_logging
-from handlers import start, help_command, echo, error_handler
+from handlers import (
+    start,
+    help_command,
+    error_handler,
+    button_handlers,
+)
 from measurement import (
     start_add_measurement,
     blood_pressure,
@@ -15,7 +28,7 @@ from measurement import (
     comment,
     body_position,
     arm_location,
-    last_measurement
+    well_being,
 )
 configure_logging()
 
@@ -36,27 +49,28 @@ def main() -> None:
     app = Application.builder().token(TOKEN).request(request).build()
 
     questions_blood_pressure = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^(Записать результат измерения)$'), start_add_measurement)],
+        entry_points=[
+            # MessageHandler(filters.Regex('^(Записать результат измерения)$'), start_add_measurement),
+            CallbackQueryHandler(start_add_measurement, pattern='^add_measurement$')
+            ],
         states={
             "blood_pressure": [MessageHandler(filters.TEXT, blood_pressure)],
             "pulse": [MessageHandler(filters.TEXT, pulse)],
             "body_position": [MessageHandler(filters.TEXT, body_position)],
             "arm_location": [MessageHandler(filters.TEXT, arm_location)],
+            "well_being": [MessageHandler(filters.TEXT, well_being)],
             "comment": [MessageHandler(filters.TEXT, comment)],
         },
         fallbacks=[],
+        per_chat=True,
+        per_user=True,
     )
 
     # Register command handlers
     app.add_handler(questions_blood_pressure)
+    app.add_handler(CallbackQueryHandler(button_handlers))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("last", last_measurement))
-    # Register button handler for "Посмотреть последний результат"
-    app.add_handler(MessageHandler(filters.Regex('^(Посмотреть последний результат)$'), last_measurement))
-
-    # Echo back non-command messages
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Register global error handler
     app.add_error_handler(error_handler)

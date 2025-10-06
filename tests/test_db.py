@@ -3,7 +3,7 @@ def test_init_db_creates_tables(temp_db):
     with db.UseDB(db.db_name) as cursor:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
-    assert {"Users", "ArmLocation", "BodyPositions", "Comments", "Measurements", "MeasureDetails"}.issubset(tables)
+    assert {"Users", "ArmLocation", "BodyPositions", "Comments", "Measurements", "MeasureDetails", "WellBeing"}.issubset(tables)
 
 
 def test_insert_and_get_user(temp_db):

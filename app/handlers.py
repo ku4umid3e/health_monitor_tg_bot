@@ -1,20 +1,27 @@
-"""Command and message handlers for the Telegram bot.
+"""./app/handlers.py
+Command and message handlers for the Telegram bot.
 
 Docstrings are unified in English; user-visible texts remain in Russian.
 """
 import logging
 
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot_messages import WELCOME_MESSAGE
-from keyboard import WLCOME_KEYBOARD
+from keyboards import WLCOME_KEYBOARD
+from measurement import last_measurement, get_day_statistics
 import db
 from logging_config import configure_logging
 
 configure_logging()
 
 logger = logging.getLogger(__name__)
+
+CALLBACK_HANDLERS = {
+    'last_measurement': last_measurement,
+    'get_day_statistics': get_day_statistics,
+}
 
 
 def greate_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -30,11 +37,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send welcome message and show the main keyboard."""
     greate_user(update=update, context=context)
     await update.message.reply_text(
-        WELCOME_MESSAGE, reply_markup=ReplyKeyboardMarkup(
-            WLCOME_KEYBOARD,
-            one_time_keyboard=True,
-            resize_keyboard=True,
-            )
+        WELCOME_MESSAGE, reply_markup=InlineKeyboardMarkup(
+            WLCOME_KEYBOARD)
         )
 
 
@@ -42,12 +46,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Respond to /help with a short help message."""
     logger.info("User click help")
     await update.message.reply_text("Help!")
-
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo back any non-command user message."""
-    logger.info("User send message")
-    await update.message.reply_text(update.message.text)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -60,3 +58,16 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             )
     except Exception as inner_err:  # noqa: BLE001
         logger.error("Failed to notify user about error: %s", inner_err)
+
+
+async def button_handlers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle button presses from inline keyboards."""
+    logger.info(f'Button_handler activate {update.callback_query.data}')
+    query = update.callback_query
+    await query.answer()
+
+    handler = CALLBACK_HANDLERS.get(query.data)
+    if handler:
+        return await handler(update, context)
+    logger.warning(f"Unhandled callback data: {query.data}")
+    await query.edit_message_text('Error: Unknow command!')
