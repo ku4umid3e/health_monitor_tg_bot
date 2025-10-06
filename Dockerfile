@@ -37,4 +37,5 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/root/.local/bin:$PATH"
 
 # Команда по умолчанию
+CMD ["cd", "..", "&&", "uv", "run", "alembic", "upgrade", "head"]
 CMD ["uv", "run", "python", "main.py"]
