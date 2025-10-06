@@ -24,7 +24,8 @@ RUN uv sync --frozen --no-dev
 
 # Копирование исходного кода
 COPY app /app
-COPY alembic.ini alembic /app/
+COPY alembic.ini /app/
+COPY alembic /app/alembic
 
 # Создание директорий и установка прав
 RUN mkdir -p /app/logs /app/data && chown -R bot-user:bot-user /app
