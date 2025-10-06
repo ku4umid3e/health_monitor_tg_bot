@@ -8,8 +8,8 @@ services:
     restart: unless-stopped
     user: 1000:1000
     volumes:
-      - ./app/logs:/app/logs
-      - ./data:/app/data
+      - app-logs:/app/logs
+      - app-data:/app/data
     environment:
       - TOKEN=${TOKEN}
     healthcheck:
@@ -18,3 +18,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  app-data:
+  app-logs:
