@@ -189,6 +189,7 @@ def run_migrations(target_db_path: str | None = None) -> None:
     path = target_db_path or db_name
     # Build alembic config pointing to project-level alembic.ini
     project_root = Path(__file__).resolve().parents[1]
+    logger.info(f"Project root {project_root}")
     alembic_ini = project_root / "alembic.ini"
     cfg = AlembicConfig(str(alembic_ini))
     # Override sqlalchemy.url dynamically for the requested DB path
