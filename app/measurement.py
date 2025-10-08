@@ -15,7 +15,8 @@ from keyboards import (
     BODY_POSITION_KEYBOARD,
     ARM_LOCATION_KEYBOARD,
     WLCOME_KEYBOARD,
-    WELL_BEING_KEYBOARD
+    WELL_BEING_KEYBOARD,
+    WITH_EDIT_BUTTON_KEYBOARD,
 )
 
 from logging_config import configure_logging
@@ -157,7 +158,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     await update.callback_query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup(
-            WLCOME_KEYBOARD
+            WITH_EDIT_BUTTON_KEYBOARD
         ),
     )
 

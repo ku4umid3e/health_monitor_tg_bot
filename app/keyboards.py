@@ -9,6 +9,12 @@ WLCOME_KEYBOARD = [
     [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
 ]
 
+WITH_EDIT_BUTTON_KEYBOARD = [
+    [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
+    [InlineKeyboardButton('Изменить последний результат', callback_data='edit_last_measurement')],
+    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
+]
+
 BODY_POSITION_KEYBOARD = [
     ["Стоя", "Сидя", "Лёжа", "Полу лёжа", "Не указано",]
 ]

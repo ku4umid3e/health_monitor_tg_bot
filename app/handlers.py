@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 CALLBACK_HANDLERS = {
     'last_measurement': last_measurement,
     'get_day_statistics': get_day_statistics,
+    'edit_last_measurement': edit_last_measurement,
 }
 
 
