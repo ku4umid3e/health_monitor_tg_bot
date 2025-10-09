@@ -144,7 +144,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         )
         return
 
-    _, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
+    id, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
     text = (
         "Последнее измерение:\n"
         f"Дата/время: {ts}\n"
@@ -155,6 +155,17 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     )
 
     logger.info(f'Check update.message \n{update.message}\n{update}\n{dir(update)}')
+    measurement_data ={
+        'MeasurementID': id,
+        'SystolicPressure': sys_p,
+        'DiastolicPressure': dia_p,
+        'Pulse': pulse,
+        'PositionName': pos_name,
+        'LocationName': arm_name,
+        'Comments': comment_text,
+        'WellBeing': well_being_name,
+    }
+    context.user_data['edit_mesuarement'] = measurement_data
     await update.callback_query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup(
@@ -185,8 +196,8 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
         rows = cursor.fetchall()
 
     if not rows:
-        await update.message.reply_text(
-            "Записей ещё нет.",
+        await update.callback_query.edit_message_text(
+            "Записей ещё нет, либо они старше 3х дней.",
             reply_markup=InlineKeyboardMarkup(
                 WLCOME_KEYBOARD
             ),
@@ -211,6 +222,14 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
             WLCOME_KEYBOARD
         ),
     )
+
+
+async def edit_last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Edit the last measurement."""
+    await update.callback_query.answer()
+    measurement_data = context.user_data['edit_mesuarement']
+
+
 
 
 def get_week_statistic():

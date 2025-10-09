@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 
 from bot_messages import WELCOME_MESSAGE
 from keyboards import WLCOME_KEYBOARD
-from measurement import last_measurement, get_day_statistics
+from measurement import last_measurement, get_day_statistics, edit_last_measurement
 import db
 from logging_config import configure_logging
 
