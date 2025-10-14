@@ -17,6 +17,7 @@ from keyboards import (
     WLCOME_KEYBOARD,
     WELL_BEING_KEYBOARD,
     WITH_EDIT_BUTTON_KEYBOARD,
+    EDIT_KEYBOARD,
 )
 
 from logging_config import configure_logging
@@ -165,7 +166,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         'Comments': comment_text,
         'WellBeing': well_being_name,
     }
-    context.user_data['edit_mesuarement'] = measurement_data
+    context.user_data['edit_measurement'] = measurement_data
     await update.callback_query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup(
@@ -224,10 +225,63 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
     )
 
 
+def _render_edit_summary(measurement_data: dict) -> str:
+    return (
+        "Изменение последнего измерения:\n"
+        f"АД: {measurement_data.get('SystolicPressure')}/{measurement_data.get('DiastolicPressure')}, "
+        f"Пульс: {measurement_data.get('Pulse')}\n"
+        f"Положение: {measurement_data.get('PositionName') or 'Не указано'}, "
+        f"Манжета: {measurement_data.get('LocationName') or 'Не указано'}\n"
+        f"Самочувствие: {measurement_data.get('WellBeing') or 'Не указано'}\n"
+        f"Комментарий: {measurement_data.get('Comments') or '—'}"
+    )
+
+
 async def edit_last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Edit the last measurement."""
     await update.callback_query.answer()
-    measurement_data = context.user_data['edit_mesuarement']
+    measurement_data = context.user_data['edit_measurement']
+    text = _render_edit_summary(measurement_data)
+    await update.callback_query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    statges_of_conversation = {
+        'save_edit':
+    }
+
+
+async def save_edit():
+    pass
+
+
+async def cancel_edit():
+    pass
+
+
+async def edit_input_pressure():
+    pass
+
+async def edit_input_pulse():
+    pass
+
+
+async def edit_choose_body_position():
+    pass
+
+async def edit_choose_arm_location():
+    pass
+
+
+
+
+
 
 
 

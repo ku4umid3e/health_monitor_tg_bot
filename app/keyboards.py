@@ -26,3 +26,16 @@ ARM_LOCATION_KEYBOARD = [
 WELL_BEING_KEYBOARD = [
     ["Хорошо", "Нормально", "Плохо"]
 ]
+
+EDIT_KEYBOARD = [
+    [InlineKeyboardButton('Артериальное давление', callback_data='edit_pressure')],
+    [InlineKeyboardButton('Пульс', callback_data='edit_pulse')],
+    [InlineKeyboardButton('Положение', callback_data='edit_body_position')],
+    [InlineKeyboardButton('Манжета', callback_data='edit_arm_location')],
+    [InlineKeyboardButton('Самочувствие', callback_data='edit_well_being')],
+    [InlineKeyboardButton('Комментарий', callback_data='edit_comment')],
+    [
+        InlineKeyboardButton('Сохранить', callback_data='save_edit'),
+        InlineKeyboardButton('Отменить', callback_data='cancel_edit'),
+    ],
+]

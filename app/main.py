@@ -29,6 +29,14 @@ from measurement import (
     body_position,
     arm_location,
     well_being,
+    edit_last_measurement,
+    edit_menu_click,
+    edit_input_pressure,
+    edit_input_pulse,
+    edit_choose_body_position,
+    edit_choose_arm_location,
+    edit_choose_well_being,
+    edit_input_comment,
 )
 configure_logging()
 
@@ -66,8 +74,29 @@ def main() -> None:
         per_user=True,
     )
 
+    edit_last_measurement_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(edit_last_measurement, pattern='^edit_last_measurement$')
+            ],
+        states={
+            "edit_choice_field": [
+                CallbackQueryHandler(edit_menu_click, pattern='^(edit_.*|save_edit|cancel_edit)$')
+                ],
+            "edit_input_pressure": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_pressure)],
+            "edit_input_pulse": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_pulse)],
+            "edit_choose_body_position": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_body_position)],
+            "edit_choose_arm_location": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_arm_location)],
+            "edit_choose_well_being": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_well_being)],
+            "edit_input_comment": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_comment)],
+        },
+        fallbacks=[],
+        per_chat=True,
+        per_user=True,
+    )
+
     # Register command handlers
     app.add_handler(questions_blood_pressure)
+    app.add_handler(edit_last_measurement_conversation)
     app.add_handler(CallbackQueryHandler(button_handlers))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
