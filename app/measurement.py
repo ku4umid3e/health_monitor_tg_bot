@@ -29,6 +29,18 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
+EDIT_HANDLERS = {
+    'save_edit': save_edit,
+    'cancel_edit': cancel_edit,
+    'edit_pressure': edit_input_pressure,
+    'edit_pulse': edit_input_pulse,
+    'edit_body_position': edit_choose_body_position,
+    'edit_arm_location': edit_choose_arm_location,
+    'edit_well_being': edit_choose_well_being,
+    'edit_comment': edit_input_comment,
+}
+
+
 async def add_measurement(update: Update, data: dict) -> None:
     """Persist collected measurements to the database.
 
@@ -248,13 +260,13 @@ async def edit_last_measurement(update: Update, context: ContextTypes.DEFAULT_TY
     )
     return 'edit_choice_field'
 
+
 async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
-    statges_of_conversation = {
-        'save_edit':
-    }
+    if handler := EDIT_HANDLERS.get(data):
+        return await handler(update, context)
 
 
 async def save_edit():
@@ -268,6 +280,7 @@ async def cancel_edit():
 async def edit_input_pressure():
     pass
 
+
 async def edit_input_pulse():
     pass
 
@@ -275,14 +288,17 @@ async def edit_input_pulse():
 async def edit_choose_body_position():
     pass
 
+
 async def edit_choose_arm_location():
     pass
 
 
+async def edit_choose_well_being():
+    pass
 
 
-
-
+async def edit_input_comment():
+    pass
 
 
 
