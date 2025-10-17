@@ -6,6 +6,7 @@ internal comments and docstrings are standardized in clear English.
 """
 import logging
 import re
+from typing import Callable, Awaitable
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
@@ -28,8 +29,9 @@ configure_logging()
 
 logger = logging.getLogger(__name__)
 
+EditHandler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[str]]
 
-EDIT_HANDLERS = {
+EDIT_HANDLERS: dict[str, EditHandler] = {
     'save_edit': save_edit,
     'cancel_edit': cancel_edit,
     'edit_pressure': edit_input_pressure,
@@ -267,14 +269,21 @@ async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     if handler := EDIT_HANDLERS.get(data):
         return await handler(update, context)
+    logger.error("No handler for edit action: %s", data)
+    await query.edit_message_text('Не найдена команда.')
+    return 'edit_choice_field'
 
 
 async def save_edit():
     pass
 
 
-async def cancel_edit():
-    pass
+async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(
+        'Редактирование отменено.', reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    return ConversationHandler.END
 
 
 async def edit_input_pressure():
@@ -299,7 +308,6 @@ async def edit_choose_well_being():
 
 async def edit_input_comment():
     pass
-
 
 
 def get_week_statistic():
