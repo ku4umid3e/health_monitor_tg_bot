@@ -138,6 +138,53 @@ def insert(table: str, column_values: Dict) -> int:
         return cursor.lastrowid
 
 
+def update(table: str, row_id: int, column_values: dict) -> None:
+    """
+    Updates a row in the specified table with the given column values.
+
+    Args:
+    table (str): The name of the table to update.
+    row_id (int): The ID of the row to update.
+    column_values (Dict): A dictionary of column-value pairs to update.
+
+    Example:
+    >>> update("Measurements", 123, {"BodyPositionID": 2})
+    """
+    set_clause = ', '.join(f"{col} = ?" for col in column_values.keys())
+    values = list(column_values.values()) + [row_id]
+    with UseDB(db_name) as cursor:
+        cursor.execute(
+            f"UPDATE {table} "
+            f"SET {set_clause} "
+            f"WHERE MeasurementID = ?",
+            values)
+
+
+def fetch_last_measurement(user_id: int) -> dict | None:
+    query = (
+        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
+        "FROM Measurement M "
+        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
+        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
+        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
+        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WllBeing WB ON WB.WellBeingID = M.WellBeingID "
+        "WHERE M.UserID = ? "
+        "ORDER BY M.Timestamp DESC LIMIT 1"
+    )
+    with UseDB(db_name) as cursor:
+        cursor.execute(query, (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        keys = [
+            'MeasurementID', 'Timestamp', 'SystolicPressure', 'DiastolicPressure',
+            'Pulse', 'PositionName', 'LocationName', 'CommentText', 'WellBeingName'
+        ]
+        return dict(zip(keys, row))
+
+
 def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     """
     Fetches all rows from a specified table with specified columns.
