@@ -129,27 +129,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     user_id = user.get('UserID')
     logger.info("Fetch last measurement for user_id=%s", user_id)
     # Simple join to get the latest measurement details
-    query = (
-        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
-        "FROM Measurements M "
-        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
-        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
-        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
-        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
-        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
-        "WHERE M.UserID = ? "
-        "ORDER BY M.Timestamp DESC LIMIT 1"
-    )
-
-    # Use provided db_path or fallback to global db_name
-    target_db = db_path or db_name
-    with UseDB(target_db) as cursor:
-        cursor.execute(query, (user_id,))
-        row = cursor.fetchone()
-
-    logger.info(f'Запрос вернул \n {row}')
-
+    row = db.fetch_last_measurement(user_id)
     if not row:
         await update.message.reply_text(
             "Записей ещё нет.",
@@ -170,7 +150,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     )
 
     logger.info(f'Check update.message \n{update.message}\n{update}\n{dir(update)}')
-    measurement_data ={
+    measurement_data = {
         'MeasurementID': id,
         'SystolicPressure': sys_p,
         'DiastolicPressure': dia_p,
@@ -274,8 +254,10 @@ async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return 'edit_choice_field'
 
 
-async def save_edit():
-    pass
+async def save_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    measurement_data = context.user_data['edit_measurement']
+
 
 
 async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
