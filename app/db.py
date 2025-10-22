@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Dict
 import logging
 import sqlite3
 
@@ -76,7 +76,7 @@ def create_user(effective_user):
     return user
 
 
-def delete(table: str, row_id: int) -> None:
+def delete(table: str, row_id: int, id_column: str) -> None:
     """
     Deletes a row from the specified table based on the provided row ID.
 
@@ -99,7 +99,10 @@ def delete(table: str, row_id: int) -> None:
     """
     row_id = int(row_id)
     with UseDB(db_name) as cursor:
-        cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
+        cursor.execute(
+            f"DELETE FROM {table} WHERE {id_column} = ?",
+            (row_id,),
+        )
 
 
 def insert(table: str, column_values: Dict) -> int:
@@ -138,7 +141,7 @@ def insert(table: str, column_values: Dict) -> int:
         return cursor.lastrowid
 
 
-def update(table: str, row_id: int, column_values: dict) -> None:
+def update(table: str, row_id: int, column_values: Dict, id_column: str) -> None:
     """
     Updates a row in the specified table with the given column values.
 
@@ -156,20 +159,21 @@ def update(table: str, row_id: int, column_values: dict) -> None:
         cursor.execute(
             f"UPDATE {table} "
             f"SET {set_clause} "
-            f"WHERE MeasurementID = ?",
-            values)
+            f"WHERE {id_column} = ?",
+            values,
+        )
 
 
-def fetch_last_measurement(user_id: int) -> dict | None:
+def fetch_last_measurement(user_id: int):
     query = (
         "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
         "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
-        "FROM Measurement M "
+        "FROM Measurements M "
         "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
         "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
         "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
         "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
-        "LEFT JOIN WllBeing WB ON WB.WellBeingID = M.WellBeingID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
         "WHERE M.UserID = ? "
         "ORDER BY M.Timestamp DESC LIMIT 1"
     )
@@ -178,14 +182,10 @@ def fetch_last_measurement(user_id: int) -> dict | None:
         row = cursor.fetchone()
         if not row:
             return None
-        keys = [
-            'MeasurementID', 'Timestamp', 'SystolicPressure', 'DiastolicPressure',
-            'Pulse', 'PositionName', 'LocationName', 'CommentText', 'WellBeingName'
-        ]
-        return dict(zip(keys, row))
+        return row
 
 
-def fetchall(table: str, columns: List[str]) -> List[Tuple]:
+def fetchall(table: str, columns: List[str]) -> List[Dict[str, object]]:
     """
     Fetches all rows from a specified table with specified columns.
 
@@ -199,8 +199,7 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     columns (List[str]): A list of column names to include in the SELECT query.
 
     Returns:
-    List[Tuple]: A list of tuples, where each tuple represents a row from the table.
-                Each tuple contains values for the specified columns.
+    List[Dict[str, object]]: A list of dicts, where each dict maps column name to value.
 
     Example:
     >>> fetchall("users", ["id", "name", "telegramId"])
@@ -217,6 +216,28 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
                 dict_row[column] = row[index]
             result.append(dict_row)
     return result
+
+
+def fetch_measurements_since_days(user_id: int, days: int = 3):
+    """Fetch measurements for a user for the last N days.
+
+    Returns rows in the same order of columns as fetch_last_measurement.
+    """
+    query = (
+        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
+        "FROM Measurements M "
+        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
+        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
+        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
+        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
+        "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", ?) "
+        "ORDER BY M.Timestamp DESC"
+    )
+    with UseDB(db_name) as cursor:
+        cursor.execute(query, (user_id, f"-{days} day"))
+        return cursor.fetchall()
 
 
 def _sqlite_url(path: str) -> str:

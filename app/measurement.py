@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Callable, Awaitable
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
+from telegram import InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
@@ -23,24 +23,17 @@ from keyboards import (
 
 from logging_config import configure_logging
 import db
-from db import UseDB, db_name
+from reference import (
+    get_body_position_id,
+    get_arm_location_id,
+    get_well_being_id,
+)
 
 configure_logging()
 
 logger = logging.getLogger(__name__)
 
 EditHandler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[str]]
-
-EDIT_HANDLERS: dict[str, EditHandler] = {
-    'save_edit': save_edit,
-    'cancel_edit': cancel_edit,
-    'edit_pressure': edit_input_pressure,
-    'edit_pulse': edit_input_pulse,
-    'edit_body_position': edit_choose_body_position,
-    'edit_arm_location': edit_choose_arm_location,
-    'edit_well_being': edit_choose_well_being,
-    'edit_comment': edit_input_comment,
-}
 
 
 async def add_measurement(update: Update, data: dict) -> None:
@@ -71,29 +64,9 @@ async def add_measurement(update: Update, data: dict) -> None:
         logger.error("Invalid measurement payload: %s user_id=%s", measurements, update.effective_user.id)
         return
 
-    body_position_map = {
-        'Стоя': 1,
-        'Сидя': 2,
-        'Лёжа': 3,
-        'Полу лёжа': 4,
-        'Не указано': 5,
-    }
-    arm_location_map = {
-        'Левая рука': 1,
-        'Правая рука': 2,
-        'Левое плечё': 3,
-        'Правое плечё': 4,
-        'Не указано': 5,
-    }
-    well_being_map = {
-        'Хорошо': 1,
-        'Нормально': 2,
-        'Плохо': 3,
-    }
-
-    body_position_id = body_position_map.get(body_position_text, 5)
-    arm_location_id = arm_location_map.get(arm_location_text, 5)
-    well_being_id = well_being_map.get(well_being_text, 2)
+    body_position_id = get_body_position_id(body_position_text)
+    arm_location_id = get_arm_location_id(arm_location_text)
+    well_being_id = get_well_being_id(well_being_text)
     user = db.get_user(update.effective_user)
     user_id = user.get('UserID')
 
@@ -172,23 +145,7 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
 async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Return aggregated statistics for the last day."""
     user_id = db.get_user(update.effective_user).get('UserID')
-    query = (
-        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
-        "FROM Measurements M "
-        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
-        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
-        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
-        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
-        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
-        "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", \"-3 day\") "
-        "ORDER BY M.Timestamp DESC"
-        )
-
-    target_db = db_path or db_name
-    with UseDB(target_db) as cursor:
-        cursor.execute(query, (user_id,))
-        rows = cursor.fetchall()
+    rows = db.fetch_measurements_since_days(user_id=user_id, days=3)
 
     if not rows:
         await update.callback_query.edit_message_text(
@@ -257,7 +214,11 @@ async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     measurement_data = context.user_data['edit_measurement']
-
+    logger.info("save_edit called for id=%s", measurement_data.get('MeasurementID'))
+    await update.callback_query.edit_message_text(
+        'Изменения сохранены.', reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    return ConversationHandler.END
 
 
 async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -300,6 +261,18 @@ def get_week_statistic():
 def get_month_statistic():
     """Return aggregated statistics for the last month."""
     pass
+
+
+EDIT_HANDLERS: dict[str, EditHandler] = {
+    'save_edit': save_edit,
+    'cancel_edit': cancel_edit,
+    'edit_pressure': edit_input_pressure,
+    'edit_pulse': edit_input_pulse,
+    'edit_body_position': edit_choose_body_position,
+    'edit_arm_location': edit_choose_arm_location,
+    'edit_well_being': edit_choose_well_being,
+    'edit_comment': edit_input_comment,
+}
 
 
 async def start_add_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
