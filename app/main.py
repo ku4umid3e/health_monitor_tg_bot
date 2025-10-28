@@ -31,12 +31,12 @@ from measurement import (
     well_being,
     edit_last_measurement,
     edit_menu_click,
-    edit_input_pressure,
-    edit_input_pulse,
-    edit_choose_body_position,
-    edit_choose_arm_location,
-    edit_choose_well_being,
-    edit_input_comment,
+    edit_pressure_input,
+    edit_pulse_input,
+    edit_body_position_input,
+    edit_arm_location_input,
+    edit_well_being_input,
+    edit_comment_input,
 )
 configure_logging()
 
@@ -82,12 +82,12 @@ def main() -> None:
             "edit_choice_field": [
                 CallbackQueryHandler(edit_menu_click, pattern='^(edit_.*|save_edit|cancel_edit)$')
                 ],
-            "edit_input_pressure": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_pressure)],
-            "edit_input_pulse": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_pulse)],
-            "edit_choose_body_position": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_body_position)],
-            "edit_choose_arm_location": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_arm_location)],
-            "edit_choose_well_being": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_choose_well_being)],
-            "edit_input_comment": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_input_comment)],
+            "edit_pressure_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_pressure_input)],
+            "edit_pulse_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_pulse_input)],
+            "edit_body_position_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_body_position_input)],
+            "edit_arm_location_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_arm_location_input)],
+            "edit_well_being_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_well_being_input)],
+            "edit_comment_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_comment_input)],
         },
         fallbacks=[],
         per_chat=True,
