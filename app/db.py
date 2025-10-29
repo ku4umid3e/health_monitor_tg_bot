@@ -44,6 +44,64 @@ class UseDB:
         self.conn.close()
 
 
+class UnitOfWork:
+    """Unit of Work for grouping multiple DB operations into a single transaction.
+
+    Usage:
+        with UnitOfWork(db_name) as uow:
+            measurement_id = uow.insert('Measurements', {...})
+            uow.insert('MeasureDetails', {..., 'MeasurementID': measurement_id})
+            # All operations are committed together on context exit
+    """
+    def __init__(self, conf: str) -> None:
+        self.config = conf
+
+    def __enter__(self) -> "UnitOfWork":
+        try:
+            self.conn = sqlite3.connect(self.config)
+            self.cursor = self.conn.cursor()
+            return self
+        except sqlite3.Error as err:
+            logger.error(f"ERROR:{err}")
+            raise ConnectionError(err)
+
+    def __exit__(self, exc_type, exc_value, exc_trace) -> None:
+        try:
+            if exc_type is None:
+                self.conn.commit()
+            else:
+                self.conn.rollback()
+        finally:
+            self.cursor.close()
+            self.conn.close()
+
+    # Convenience methods operating on the same cursor/transaction
+    def insert(self, table: str, column_values: Dict) -> int:
+        columns = ', '.join(column_values.keys())
+        values = tuple(column_values.values())
+        placeholders = ", ".join("?" * len(column_values.keys()))
+        self.cursor.execute(
+            f"INSERT INTO {table} (" f"{columns}) VALUES ({placeholders})",
+            values,
+        )
+        return self.cursor.lastrowid
+
+    def update(self, table: str, row_id: int, column_values: Dict, id_column: str) -> None:
+        set_clause = ', '.join(f"{col} = ?" for col in column_values.keys())
+        values = list(column_values.values()) + [row_id]
+        self.cursor.execute(
+            f"UPDATE {table} SET {set_clause} WHERE {id_column} = ?",
+            values,
+        )
+
+    def delete(self, table: str, row_id: int, id_column: str) -> None:
+        row_id = int(row_id)
+        self.cursor.execute(
+            f"DELETE FROM {table} WHERE {id_column} = ?",
+            (row_id,),
+        )
+
+
 def get_user(effective_user):
     """Return user record by Telegram user; create it if missing."""
     logger.info(f"get_user {type(effective_user)}:{effective_user}")
