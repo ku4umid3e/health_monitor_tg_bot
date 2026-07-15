@@ -12,10 +12,11 @@ services:
       - app-data:/app/data
     environment:
       - TOKEN=${TOKEN}
+      - PROXY_URL=${PROXY_URL:-}
       - DB_PATH=/app/data/measurements.db
       - ALEMBIC_INI=/app/alembic.ini
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('https://api.telegram.org/bot${TOKEN}/getMe', timeout=5)"]
+      test: ["CMD-SHELL", "if [ -n \"$$PROXY_URL\" ]; then curl -fsS --proxy \"$$PROXY_URL\" \"https://api.telegram.org/bot$$TOKEN/getMe\"; else curl -fsS \"https://api.telegram.org/bot$$TOKEN/getMe\"; fi"]
       interval: 30s
       timeout: 10s
       retries: 3

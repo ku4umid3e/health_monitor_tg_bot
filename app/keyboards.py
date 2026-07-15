@@ -16,7 +16,7 @@ WITH_EDIT_BUTTON_KEYBOARD = [
 ]
 
 BODY_POSITION_KEYBOARD = [
-    ["Стоя", "Сидя", "Лёжа", "Полу лёжа", "Не указано",]
+    ["Стоя", "Сидя", "Лёжа", "Полу-лёжа", "Не указано",]
 ]
 
 ARM_LOCATION_KEYBOARD = [
@@ -39,3 +39,29 @@ EDIT_KEYBOARD = [
         InlineKeyboardButton('Отменить', callback_data='cancel_edit'),
     ],
 ]
+
+EDIT_BODY_POSITION_KEYBOARD = [[
+    InlineKeyboardButton('Стоя', callback_data='set_body_position:1'),
+    InlineKeyboardButton('Сидя', callback_data='set_body_position:2'),
+], [
+    InlineKeyboardButton('Лёжа', callback_data='set_body_position:3'),
+    InlineKeyboardButton('Полу-лёжа', callback_data='set_body_position:4'),
+], [
+    InlineKeyboardButton('Не указано', callback_data='set_body_position:5'),
+]]
+
+EDIT_ARM_LOCATION_KEYBOARD = [[
+    InlineKeyboardButton('Левая рука', callback_data='set_arm_location:1'),
+    InlineKeyboardButton('Правая рука', callback_data='set_arm_location:2'),
+], [
+    InlineKeyboardButton('Левое плечо', callback_data='set_arm_location:3'),
+    InlineKeyboardButton('Правое плечо', callback_data='set_arm_location:4'),
+], [
+    InlineKeyboardButton('Не указано', callback_data='set_arm_location:5'),
+]]
+
+EDIT_WELL_BEING_KEYBOARD = [[
+    InlineKeyboardButton('Хорошо', callback_data='set_well_being:1'),
+    InlineKeyboardButton('Нормально', callback_data='set_well_being:2'),
+    InlineKeyboardButton('Плохо', callback_data='set_well_being:3'),
+]]

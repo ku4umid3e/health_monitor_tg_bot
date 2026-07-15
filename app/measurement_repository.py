@@ -5,7 +5,8 @@ from typing import Optional, Tuple
 from logging_config import configure_logging
 import logging
 
-from db import UseDB, UnitOfWork, db_name
+import db
+from db import UnitOfWork
 
 
 configure_logging()
@@ -53,7 +54,7 @@ class MeasurementRepository:
         logger.info("Inserted measurement %s with details %s", measurement_id, details_id)
         return measurement_id, details_id, comment_id
 
-    def get_last_by_user(self, user_id: int):
+    def get_last_by_user(self, user_id: int, database_path: str | None = None):
         query = (
             "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
             "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
@@ -66,11 +67,17 @@ class MeasurementRepository:
             "WHERE M.UserID = ? "
             "ORDER BY M.Timestamp DESC LIMIT 1"
         )
-        with UseDB(db_name) as cursor:
+        with db.UseDB(database_path or db.db_name) as cursor:
             cursor.execute(query, (user_id,))
             return cursor.fetchone()
 
-    def list_since_days(self, user_id: int, *, days: int = 3):
+    def list_since_days(
+        self,
+        user_id: int,
+        *,
+        days: int = 3,
+        database_path: str | None = None,
+    ):
         query = (
             "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
             "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
@@ -83,7 +90,7 @@ class MeasurementRepository:
             "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", ?) "
             "ORDER BY M.Timestamp DESC"
         )
-        with UseDB(db_name) as cursor:
+        with db.UseDB(database_path or db.db_name) as cursor:
             cursor.execute(query, (user_id, f"-{days} day"))
             return cursor.fetchall()
 
@@ -92,6 +99,7 @@ class MeasurementRepository:
         uow: UnitOfWork,
         *,
         measurement_id: int,
+        user_id: int,
         systolic: Optional[int] = None,
         diastolic: Optional[int] = None,
         pulse: Optional[int] = None,
@@ -101,6 +109,16 @@ class MeasurementRepository:
         comment_text: Optional[str] = None,
         remove_comment: bool = False,
     ) -> None:
+        uow.cursor.execute(
+            "SELECT CommentID FROM Measurements "
+            "WHERE MeasurementID = ? AND UserID = ?",
+            (measurement_id, user_id),
+        )
+        owner_row = uow.cursor.fetchone()
+        if owner_row is None:
+            raise LookupError("Measurement does not belong to the current user")
+        old_comment_id = owner_row[0]
+
         details_update = {}
         if systolic is not None:
             details_update['SystolicPressure'] = systolic
@@ -130,5 +148,8 @@ class MeasurementRepository:
 
         if measurement_updates:
             uow.update('Measurements', measurement_id, measurement_updates, 'MeasurementID')
+
+        if old_comment_id and (remove_comment or comment_text is not None):
+            uow.delete('Comments', old_comment_id, 'CommentID')
 
         logger.info("Updated measurement %s", measurement_id)
