@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Dict
 import logging
 import sqlite3
 
@@ -44,6 +44,64 @@ class UseDB:
         self.conn.close()
 
 
+class UnitOfWork:
+    """Unit of Work for grouping multiple DB operations into a single transaction.
+
+    Usage:
+        with UnitOfWork(db_name) as uow:
+            measurement_id = uow.insert('Measurements', {...})
+            uow.insert('MeasureDetails', {..., 'MeasurementID': measurement_id})
+            # All operations are committed together on context exit
+    """
+    def __init__(self, conf: str) -> None:
+        self.config = conf
+
+    def __enter__(self) -> "UnitOfWork":
+        try:
+            self.conn = sqlite3.connect(self.config)
+            self.cursor = self.conn.cursor()
+            return self
+        except sqlite3.Error as err:
+            logger.error(f"ERROR:{err}")
+            raise ConnectionError(err)
+
+    def __exit__(self, exc_type, exc_value, exc_trace) -> None:
+        try:
+            if exc_type is None:
+                self.conn.commit()
+            else:
+                self.conn.rollback()
+        finally:
+            self.cursor.close()
+            self.conn.close()
+
+    # Convenience methods operating on the same cursor/transaction
+    def insert(self, table: str, column_values: Dict) -> int:
+        columns = ', '.join(column_values.keys())
+        values = tuple(column_values.values())
+        placeholders = ", ".join("?" * len(column_values.keys()))
+        self.cursor.execute(
+            f"INSERT INTO {table} (" f"{columns}) VALUES ({placeholders})",
+            values,
+        )
+        return self.cursor.lastrowid
+
+    def update(self, table: str, row_id: int, column_values: Dict, id_column: str) -> None:
+        set_clause = ', '.join(f"{col} = ?" for col in column_values.keys())
+        values = list(column_values.values()) + [row_id]
+        self.cursor.execute(
+            f"UPDATE {table} SET {set_clause} WHERE {id_column} = ?",
+            values,
+        )
+
+    def delete(self, table: str, row_id: int, id_column: str) -> None:
+        row_id = int(row_id)
+        self.cursor.execute(
+            f"DELETE FROM {table} WHERE {id_column} = ?",
+            (row_id,),
+        )
+
+
 def get_user(effective_user):
     """Return user record by Telegram user; create it if missing."""
     logger.info(f"get_user {type(effective_user)}:{effective_user}")
@@ -76,7 +134,7 @@ def create_user(effective_user):
     return user
 
 
-def delete(table: str, row_id: int) -> None:
+def delete(table: str, row_id: int, id_column: str) -> None:
     """
     Deletes a row from the specified table based on the provided row ID.
 
@@ -99,7 +157,10 @@ def delete(table: str, row_id: int) -> None:
     """
     row_id = int(row_id)
     with UseDB(db_name) as cursor:
-        cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
+        cursor.execute(
+            f"DELETE FROM {table} WHERE {id_column} = ?",
+            (row_id,),
+        )
 
 
 def insert(table: str, column_values: Dict) -> int:
@@ -138,7 +199,51 @@ def insert(table: str, column_values: Dict) -> int:
         return cursor.lastrowid
 
 
-def fetchall(table: str, columns: List[str]) -> List[Tuple]:
+def update(table: str, row_id: int, column_values: Dict, id_column: str) -> None:
+    """
+    Updates a row in the specified table with the given column values.
+
+    Args:
+    table (str): The name of the table to update.
+    row_id (int): The ID of the row to update.
+    column_values (Dict): A dictionary of column-value pairs to update.
+
+    Example:
+    >>> update("Measurements", 123, {"BodyPositionID": 2})
+    """
+    set_clause = ', '.join(f"{col} = ?" for col in column_values.keys())
+    values = list(column_values.values()) + [row_id]
+    with UseDB(db_name) as cursor:
+        cursor.execute(
+            f"UPDATE {table} "
+            f"SET {set_clause} "
+            f"WHERE {id_column} = ?",
+            values,
+        )
+
+
+def fetch_last_measurement(user_id: int):
+    query = (
+        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
+        "FROM Measurements M "
+        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
+        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
+        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
+        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
+        "WHERE M.UserID = ? "
+        "ORDER BY M.Timestamp DESC LIMIT 1"
+    )
+    with UseDB(db_name) as cursor:
+        cursor.execute(query, (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return row
+
+
+def fetchall(table: str, columns: List[str]) -> List[Dict[str, object]]:
     """
     Fetches all rows from a specified table with specified columns.
 
@@ -152,8 +257,7 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     columns (List[str]): A list of column names to include in the SELECT query.
 
     Returns:
-    List[Tuple]: A list of tuples, where each tuple represents a row from the table.
-                Each tuple contains values for the specified columns.
+    List[Dict[str, object]]: A list of dicts, where each dict maps column name to value.
 
     Example:
     >>> fetchall("users", ["id", "name", "telegramId"])
@@ -170,6 +274,28 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
                 dict_row[column] = row[index]
             result.append(dict_row)
     return result
+
+
+def fetch_measurements_since_days(user_id: int, days: int = 3):
+    """Fetch measurements for a user for the last N days.
+
+    Returns rows in the same order of columns as fetch_last_measurement.
+    """
+    query = (
+        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
+        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
+        "FROM Measurements M "
+        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
+        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
+        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
+        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
+        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
+        "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", ?) "
+        "ORDER BY M.Timestamp DESC"
+    )
+    with UseDB(db_name) as cursor:
+        cursor.execute(query, (user_id, f"-{days} day"))
+        return cursor.fetchall()
 
 
 def _sqlite_url(path: str) -> str:

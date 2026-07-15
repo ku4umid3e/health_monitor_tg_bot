@@ -29,24 +29,41 @@ from measurement import (
     body_position,
     arm_location,
     well_being,
+    edit_last_measurement,
+    edit_menu_click,
+    edit_pressure_input,
+    edit_pulse_input,
+    edit_comment_input,
+    cancel_edit_command,
 )
 configure_logging()
 
 logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TOKEN")
+PROXY_URL = os.getenv("PROXY_URL") or None
+
+
+def build_request() -> HTTPXRequest:
+    """Create a Telegram HTTP client with the optional shared proxy."""
+    return HTTPXRequest(
+        proxy_url=PROXY_URL,
+        connect_timeout=30.0,
+        read_timeout=60.0,
+        write_timeout=30.0,
+    )
 
 
 def main() -> None:
     """Start the bot application and register handlers."""
     # Configure HTTPX client with timeouts to improve network resilience
-    request = HTTPXRequest(
-        connect_timeout=30.0,
-        read_timeout=60.0,
-        write_timeout=30.0,
+    builder = Application.builder().token(TOKEN)
+    app = (
+        builder
+        .request(build_request())
+        .get_updates_request(build_request())
+        .build()
     )
-    # Create the Application and pass it your bot's token and custom request
-    app = Application.builder().token(TOKEN).request(request).build()
 
     questions_blood_pressure = ConversationHandler(
         entry_points=[
@@ -66,8 +83,26 @@ def main() -> None:
         per_user=True,
     )
 
+    edit_last_measurement_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(edit_last_measurement, pattern='^edit_last_measurement$')
+            ],
+        states={
+            "edit_choice_field": [
+                CallbackQueryHandler(edit_menu_click, pattern='^(edit_.*|set_.*|save_edit|cancel_edit)$')
+                ],
+            "edit_pressure_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_pressure_input)],
+            "edit_pulse_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_pulse_input)],
+            "edit_comment_input": [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_comment_input)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_edit_command)],
+        per_chat=True,
+        per_user=True,
+    )
+
     # Register command handlers
     app.add_handler(questions_blood_pressure)
+    app.add_handler(edit_last_measurement_conversation)
     app.add_handler(CallbackQueryHandler(button_handlers))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))

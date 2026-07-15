@@ -21,7 +21,13 @@ cp env.example .env
 
 ```env
 TOKEN=your_actual_telegram_bot_token
+# Если Telegram недоступен напрямую:
+PROXY_URL=http://username:password@proxy.example.com:3128
 ```
+
+`PROXY_URL` необязателен. Он применяется и к обычным Bot API запросам, и к
+long polling (`getUpdates`). Для прокси без авторизации используйте адрес вида
+`http://proxy.example.com:3128`. Не добавляйте `.env` с учётными данными в Git.
 
 ### 3. Настройка GitHub Secrets (рекомендуется)
 

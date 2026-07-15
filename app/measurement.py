@@ -6,8 +6,10 @@ internal comments and docstrings are standardized in clear English.
 """
 import logging
 import re
+import sqlite3
+from typing import Callable, Awaitable
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
+from telegram import InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
@@ -15,16 +17,32 @@ from keyboards import (
     BODY_POSITION_KEYBOARD,
     ARM_LOCATION_KEYBOARD,
     WLCOME_KEYBOARD,
-    WELL_BEING_KEYBOARD
+    WELL_BEING_KEYBOARD,
+    WITH_EDIT_BUTTON_KEYBOARD,
+    EDIT_KEYBOARD,
+    EDIT_BODY_POSITION_KEYBOARD,
+    EDIT_ARM_LOCATION_KEYBOARD,
+    EDIT_WELL_BEING_KEYBOARD,
 )
 
 from logging_config import configure_logging
 import db
-from db import UseDB, db_name
+from reference import (
+    get_body_position_id,
+    get_arm_location_id,
+    get_well_being_id,
+    get_body_position_name,
+    get_arm_location_name,
+    get_well_being_name,
+)
+from measurement_repository import MeasurementRepository
+from message_formatter import render_edit_summary, render_last_measurement, render_receipt
 
 configure_logging()
 
 logger = logging.getLogger(__name__)
+
+EditHandler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[str]]
 
 
 async def add_measurement(update: Update, data: dict) -> None:
@@ -55,55 +73,25 @@ async def add_measurement(update: Update, data: dict) -> None:
         logger.error("Invalid measurement payload: %s user_id=%s", measurements, update.effective_user.id)
         return
 
-    body_position_map = {
-        'Стоя': 1,
-        'Сидя': 2,
-        'Лёжа': 3,
-        'Полу лёжа': 4,
-        'Не указано': 5,
-    }
-    arm_location_map = {
-        'Левая рука': 1,
-        'Правая рука': 2,
-        'Левое плечё': 3,
-        'Правое плечё': 4,
-        'Не указано': 5,
-    }
-    well_being_map = {
-        'Хорошо': 1,
-        'Нормально': 2,
-        'Плохо': 3,
-    }
-
-    body_position_id = body_position_map.get(body_position_text, 5)
-    arm_location_id = arm_location_map.get(arm_location_text, 5)
-    well_being_id = well_being_map.get(well_being_text, 2)
+    body_position_id = get_body_position_id(body_position_text)
+    arm_location_id = get_arm_location_id(arm_location_text)
+    well_being_id = get_well_being_id(well_being_text)
     user = db.get_user(update.effective_user)
     user_id = user.get('UserID')
 
-    comment_id = None
-    if comment_text and comment_text.strip():
-        comment_id = db.insert('Comments', {'CommentText': comment_text.strip()})
-        logger.info("Inserted comment id=%s user_id=%s", comment_id, update.effective_user.id)
-
-    measurement_id = db.insert('Measurements', {
-        'UserID': user_id,
-        'ArmLocationID': arm_location_id,
-        'BodyPositionID': body_position_id,
-        'WellBeingID': well_being_id,
-        'CommentID': comment_id,
-    })
-    logger.info("Inserted measurement id=%s user_id=%s", measurement_id, update.effective_user.id)
-
-    details_id = db.insert('MeasureDetails', {
-        'MeasurementID': measurement_id,
-        'SystolicPressure': systolic,
-        'DiastolicPressure': diastolic,
-        'Pulse': pulse,
-    })
-    logger.info("Inserted measure details id=%s for measurement id=%s",
-                details_id, measurement_id)
-    logger.info("User context for details: user_id=%s", update.effective_user.id)
+    repo = MeasurementRepository()
+    with db.UnitOfWork(db.db_name) as uow:
+        repo.insert_with_details(
+            uow,
+            user_id=user_id,
+            systolic=systolic,
+            diastolic=diastolic,
+            pulse=pulse,
+            body_position_id=body_position_id,
+            arm_location_id=arm_location_id,
+            well_being_id=well_being_id,
+            comment_text=comment_text,
+        )
     logger.info("Persist measurement: done user_id=%s", update.effective_user.id)
 
 
@@ -113,29 +101,11 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     user_id = user.get('UserID')
     logger.info("Fetch last measurement for user_id=%s", user_id)
     # Simple join to get the latest measurement details
-    query = (
-        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
-        "FROM Measurements M "
-        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
-        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
-        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
-        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
-        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
-        "WHERE M.UserID = ? "
-        "ORDER BY M.Timestamp DESC LIMIT 1"
-    )
-
-    # Use provided db_path or fallback to global db_name
-    target_db = db_path or db_name
-    with UseDB(target_db) as cursor:
-        cursor.execute(query, (user_id,))
-        row = cursor.fetchone()
-
-    logger.info(f'Запрос вернул \n {row}')
-
+    row = MeasurementRepository().get_last_by_user(user_id, db_path)
     if not row:
-        await update.message.reply_text(
+        message = update.message or update.callback_query
+        sender = message.reply_text if update.message else message.edit_message_text
+        await sender(
             "Записей ещё нет.",
             reply_markup=InlineKeyboardMarkup(
                 WLCOME_KEYBOARD
@@ -143,21 +113,25 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         )
         return
 
-    _, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
-    text = (
-        "Последнее измерение:\n"
-        f"Дата/время: {ts}\n"
-        f"АД: {sys_p}/{dia_p}, Пульс: {pulse}\n"
-        f"Положение: {pos_name or 'Не указано'}, Манжета: {arm_name or 'Не указано'}\n"
-        f"Самочувствие: {well_being_name or 'Не указано'}\n"
-        f"Комментарий: {comment_text or '—'}"
-    )
+    id, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
+    text = render_last_measurement(row)
 
     logger.info(f'Check update.message \n{update.message}\n{update}\n{dir(update)}')
+    measurement_data = {
+        'MeasurementID': id,
+        'SystolicPressure': sys_p,
+        'DiastolicPressure': dia_p,
+        'Pulse': pulse,
+        'PositionName': pos_name,
+        'LocationName': arm_name,
+        'Comments': comment_text,
+        'WellBeing': well_being_name,
+    }
+    context.user_data['edit_measurement'] = measurement_data
     await update.callback_query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup(
-            WLCOME_KEYBOARD
+            WITH_EDIT_BUTTON_KEYBOARD
         ),
     )
 
@@ -165,27 +139,13 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
 async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Return aggregated statistics for the last day."""
     user_id = db.get_user(update.effective_user).get('UserID')
-    query = (
-        "SELECT M.MeasurementID, M.Timestamp, MD.SystolicPressure, MD.DiastolicPressure, MD.Pulse, "
-        "BP.PositionName, AL.LocationName, C.CommentText, WB.Name "
-        "FROM Measurements M "
-        "JOIN MeasureDetails MD ON MD.MeasurementID = M.MeasurementID "
-        "LEFT JOIN BodyPositions BP ON BP.BodyPositionID = M.BodyPositionID "
-        "LEFT JOIN ArmLocation AL ON AL.ArmLocationID = M.ArmLocationID "
-        "LEFT JOIN Comments C ON C.CommentID = M.CommentID "
-        "LEFT JOIN WellBeing WB ON WB.WellBeingID = M.WellBeingID "
-        "WHERE M.UserID = ? AND M.Timestamp >= datetime(\"now\", \"-3 day\") "
-        "ORDER BY M.Timestamp DESC"
-        )
-
-    target_db = db_path or db_name
-    with UseDB(target_db) as cursor:
-        cursor.execute(query, (user_id,))
-        rows = cursor.fetchall()
+    rows = MeasurementRepository().list_since_days(
+        user_id=user_id, days=3, database_path=db_path,
+    )
 
     if not rows:
-        await update.message.reply_text(
-            "Записей ещё нет.",
+        await update.callback_query.edit_message_text(
+            "Записей ещё нет, либо они старше 3х дней.",
             reply_markup=InlineKeyboardMarkup(
                 WLCOME_KEYBOARD
             ),
@@ -212,6 +172,268 @@ async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE,
     )
 
 
+def _render_edit_summary(measurement_data: dict) -> str:
+    return render_edit_summary(measurement_data)
+
+
+async def edit_last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Load the current user's latest measurement and open its editor."""
+    await update.callback_query.answer()
+    user_id = db.get_user(update.effective_user)['UserID']
+    row = MeasurementRepository().get_last_by_user(user_id)
+    if not row:
+        await update.callback_query.edit_message_text(
+            "Записей ещё нет.", reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+        return ConversationHandler.END
+    measurement_data = {
+        'MeasurementID': row[0],
+        'SystolicPressure': row[2],
+        'DiastolicPressure': row[3],
+        'Pulse': row[4],
+        'PositionName': row[5],
+        'LocationName': row[6],
+        'Comments': row[7],
+        'WellBeing': row[8],
+        '_dirty_fields': set(),
+    }
+    context.user_data['edit_measurement'] = measurement_data
+    text = _render_edit_summary(measurement_data)
+    await update.callback_query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+
+async def edit_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data.startswith('set_'):
+        return await apply_reference_choice(update, context)
+    if handler := EDIT_HANDLERS.get(data):
+        return await handler(update, context)
+    logger.error("No handler for edit action: %s", data)
+    await query.edit_message_text('Не найдена команда.')
+    return 'edit_choice_field'
+
+
+async def save_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Save edited measurement data to database."""
+    measurement_data = context.user_data.get('edit_measurement')
+    if not measurement_data:
+        await update.callback_query.edit_message_text('Сессия редактирования истекла.')
+        return ConversationHandler.END
+    logger.info("save_edit called for id=%s", measurement_data.get('MeasurementID'))
+
+    try:
+        # Update database with edited data
+        user_id = db.get_user(update.effective_user)['UserID']
+        update_measurement_in_db(measurement_data, user_id=user_id)
+
+        await update.callback_query.edit_message_text(
+            'Изменения сохранены.',
+            reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+        context.user_data.pop('edit_measurement', None)
+    except (LookupError, ValueError, db.ConnectionError, sqlite3.Error) as exc:
+        logger.error("Error saving edit: %s", exc)
+        await update.callback_query.edit_message_text(
+            'Ошибка при сохранении изменений. Попробуйте ещё раз.',
+            reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+
+    return ConversationHandler.END
+
+
+async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop('edit_measurement', None)
+    await update.callback_query.edit_message_text(
+        'Редактирование отменено.', reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    return ConversationHandler.END
+
+
+async def cancel_edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel editing from a text-input state via /cancel."""
+    context.user_data.pop('edit_measurement', None)
+    await update.message.reply_text(
+        'Редактирование отменено.',
+        reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    return ConversationHandler.END
+
+
+async def edit_input_pressure(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to input new blood pressure values."""
+    measurement_data = context.user_data['edit_measurement']
+    current_pressure = f"{measurement_data.get('SystolicPressure')}/{measurement_data.get('DiastolicPressure')}"
+
+    await update.callback_query.edit_message_text(
+        (
+            f"Текущее АД: {current_pressure}\n\n"
+            "Введите новое артериальное давление в формате 'систолическое/диастолическое' "
+            "(например: 120/80):"
+        ),
+        reply_markup=None,
+    )
+    return 'edit_pressure_input'
+
+
+async def edit_pressure_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process new blood pressure input and update measurement data."""
+    pressure = re.findall(r"\d+", update.message.text)
+    if len(pressure) != 2 or not (40 <= int(pressure[0]) <= 300) or not (20 <= int(pressure[1]) <= 200):
+        await update.message.reply_text(WRONG_PRESSURE)
+        return 'edit_pressure_input'
+
+    # Update measurement data
+    measurement_data = context.user_data['edit_measurement']
+    measurement_data['SystolicPressure'] = int(pressure[0])
+    measurement_data['DiastolicPressure'] = int(pressure[1])
+    measurement_data['_dirty_fields'].update({'pressure'})
+
+    # Show updated summary and return to edit menu
+    text = _render_edit_summary(measurement_data)
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD)
+    )
+    return 'edit_choice_field'
+
+
+async def edit_input_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to input new pulse value."""
+    measurement_data = context.user_data['edit_measurement']
+    current_pulse = measurement_data.get('Pulse')
+
+    await update.callback_query.edit_message_text(
+        f"Текущий пульс: {current_pulse}\n\nВведите новый пульс:",
+        reply_markup=None
+    )
+    return 'edit_pulse_input'
+
+
+async def edit_pulse_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process new pulse input and update measurement data."""
+    pulse = re.findall(r"\d+", update.message.text)
+    if len(pulse) != 1 or not (20 <= int(pulse[0]) <= 250):
+        await update.message.reply_text(WRONG_PULSE)
+        return 'edit_pulse_input'
+
+    # Update measurement data
+    measurement_data = context.user_data['edit_measurement']
+    measurement_data['Pulse'] = int(pulse[0])
+    measurement_data['_dirty_fields'].add('pulse')
+
+    # Show updated summary and return to edit menu
+    text = _render_edit_summary(measurement_data)
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD)
+    )
+    return 'edit_choice_field'
+
+
+async def edit_choose_body_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to select new body position."""
+    measurement_data = context.user_data['edit_measurement']
+    current_position = measurement_data.get('PositionName', 'Не указано')
+
+    await update.callback_query.edit_message_text(
+        f"Текущее положение: {current_position}\n\nВыберите новое положение:",
+        reply_markup=InlineKeyboardMarkup(EDIT_BODY_POSITION_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+
+async def edit_choose_arm_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to select new arm location."""
+    measurement_data = context.user_data['edit_measurement']
+    current_location = measurement_data.get('LocationName', 'Не указано')
+
+    await update.callback_query.edit_message_text(
+        f"Текущее положение манжеты: {current_location}\n\nВыберите новое положение манжеты:",
+        reply_markup=InlineKeyboardMarkup(EDIT_ARM_LOCATION_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+
+async def edit_choose_well_being(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to select new well-being status."""
+    measurement_data = context.user_data['edit_measurement']
+    current_wellbeing = measurement_data.get('WellBeing', 'Не указано')
+
+    await update.callback_query.edit_message_text(
+        f"Текущее самочувствие: {current_wellbeing}\n\nВыберите новое самочувствие:",
+        reply_markup=InlineKeyboardMarkup(EDIT_WELL_BEING_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+
+async def apply_reference_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Apply a reference-table selection encoded in inline callback data."""
+    action, raw_id = update.callback_query.data.split(':', 1)
+    try:
+        value_id = int(raw_id)
+    except ValueError:
+        await update.callback_query.edit_message_text('Некорректное значение.')
+        return 'edit_choice_field'
+
+    measurement_data = context.user_data['edit_measurement']
+    choices = {
+        'set_body_position': ('PositionName', 'body_position', get_body_position_name),
+        'set_arm_location': ('LocationName', 'arm_location', get_arm_location_name),
+        'set_well_being': ('WellBeing', 'well_being', get_well_being_name),
+    }
+    choice = choices.get(action)
+    if choice is None:
+        await update.callback_query.edit_message_text('Некорректное действие.')
+        return 'edit_choice_field'
+    field, dirty_field, lookup = choice
+    name = lookup(value_id)
+    if name is None:
+        await update.callback_query.edit_message_text('Значение не найдено.')
+        return 'edit_choice_field'
+    measurement_data[field] = name
+    measurement_data['_dirty_fields'].add(dirty_field)
+    await update.callback_query.edit_message_text(
+        _render_edit_summary(measurement_data),
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD),
+    )
+    return 'edit_choice_field'
+
+
+async def edit_input_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to input new comment."""
+    measurement_data = context.user_data['edit_measurement']
+    current_comment = measurement_data.get('Comments', '—')
+
+    await update.callback_query.edit_message_text(
+        f"Текущий комментарий: {current_comment}\n\nВведите новый комментарий (или отправьте '—' для удаления):",
+        reply_markup=None,
+    )
+    return 'edit_comment_input'
+
+
+async def edit_comment_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process new comment input and update measurement data."""
+    # Update measurement data
+    measurement_data = context.user_data['edit_measurement']
+    new_comment = update.message.text if update.message.text != '—' else None
+    measurement_data['Comments'] = new_comment
+    measurement_data['_dirty_fields'].add('comment')
+
+    # Show updated summary and return to edit menu
+    text = _render_edit_summary(measurement_data)
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(EDIT_KEYBOARD)
+    )
+    return 'edit_choice_field'
+
+
 def get_week_statistic():
     """Return aggregated statistics for the last week."""
     pass
@@ -220,6 +442,70 @@ def get_week_statistic():
 def get_month_statistic():
     """Return aggregated statistics for the last month."""
     pass
+
+
+def update_measurement_in_db(
+    measurement_data: dict,
+    *,
+    user_id: int,
+    database_path: str | None = None,
+) -> None:
+    """Update measurement data in the database."""
+    measurement_id = measurement_data.get('MeasurementID')
+    if not measurement_id:
+        raise ValueError("No measurement ID provided for update")
+
+    dirty = measurement_data.get('_dirty_fields', set())
+    target_db = database_path or db.db_name
+
+    body_position_id = (
+        get_body_position_id(measurement_data.get('PositionName'), target_db)
+        if 'body_position' in dirty else None
+    )
+    arm_location_id = (
+        get_arm_location_id(measurement_data.get('LocationName'), target_db)
+        if 'arm_location' in dirty else None
+    )
+    well_being_id = (
+        get_well_being_id(measurement_data.get('WellBeing'), target_db)
+        if 'well_being' in dirty else None
+    )
+
+    repo = MeasurementRepository()
+    with db.UnitOfWork(target_db) as uow:
+        remove_comment = (
+            'comment' in dirty and (
+                measurement_data.get('Comments') is None or
+                not str(measurement_data.get('Comments')).strip()
+            )
+        )
+        repo.update_measurement(
+            uow,
+            measurement_id=measurement_id,
+            user_id=user_id,
+            systolic=measurement_data.get('SystolicPressure') if 'pressure' in dirty else None,
+            diastolic=measurement_data.get('DiastolicPressure') if 'pressure' in dirty else None,
+            pulse=measurement_data.get('Pulse') if 'pulse' in dirty else None,
+            body_position_id=body_position_id,
+            arm_location_id=arm_location_id,
+            well_being_id=well_being_id,
+            comment_text=measurement_data.get('Comments') if 'comment' in dirty else None,
+            remove_comment=remove_comment,
+        )
+
+    logger.info("Updated measurement id=%s", measurement_id)
+
+
+EDIT_HANDLERS: dict[str, EditHandler] = {
+    'save_edit': save_edit,
+    'cancel_edit': cancel_edit,
+    'edit_pressure': edit_input_pressure,
+    'edit_pulse': edit_input_pulse,
+    'edit_body_position': edit_choose_body_position,
+    'edit_arm_location': edit_choose_arm_location,
+    'edit_well_being': edit_choose_well_being,
+    'edit_comment': edit_input_comment,
+}
 
 
 async def start_add_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -305,13 +591,7 @@ async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = context.user_data['measurements']
     logger.info(f'type query:{query}')
     await add_measurement(update, context.user_data)
-    receipt = (
-        'Супер! Я записал измерение:\n'
-        f"АД: {query['pressure'][0]}/{query['pressure'][1]}, Пульс: {query['pulse'][0]}\n"
-        f"Положение: {query['body_position']}, Манжета: {query['arm_location']}\n"
-        f"Самочувствие: {query['well_being']}\n"
-        f"Комментарий: {query['comment']}"
-    )
+    receipt = render_receipt(query)
     logger.info("Send receipt to user_id=%s: %s", update.effective_user.id, receipt.replace('\n', ' | '))
     await update.message.reply_text(
         receipt,
