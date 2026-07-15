@@ -1,6 +1,8 @@
 name: Deploy Health Monitor Bot
 
 on:
+  workflow_dispatch:  # Разрешает ручной запуск
+    branches: [main]
   push:
     branches: [main]
   pull_request:
