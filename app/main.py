@@ -35,6 +35,7 @@ from measurement import (
     edit_pulse_input,
     edit_comment_input,
     cancel_edit_command,
+    cancel_add_measurement,
 )
 configure_logging()
 
@@ -71,14 +72,32 @@ def main() -> None:
             CallbackQueryHandler(start_add_measurement, pattern='^add_measurement$')
             ],
         states={
-            "blood_pressure": [MessageHandler(filters.TEXT, blood_pressure)],
-            "pulse": [MessageHandler(filters.TEXT, pulse)],
-            "body_position": [MessageHandler(filters.TEXT, body_position)],
-            "arm_location": [MessageHandler(filters.TEXT, arm_location)],
-            "well_being": [MessageHandler(filters.TEXT, well_being)],
-            "comment": [MessageHandler(filters.TEXT, comment)],
+            "blood_pressure": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, blood_pressure),
+            ],
+            "pulse": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, pulse),
+            ],
+            "body_position": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, body_position),
+            ],
+            "arm_location": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, arm_location),
+            ],
+            "well_being": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, well_being),
+            ],
+            "comment": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_add_measurement),
+                MessageHandler(filters.TEXT, comment),
+            ],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("cancel", cancel_add_measurement)],
         per_chat=True,
         per_user=True,
     )

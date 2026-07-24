@@ -3,6 +3,9 @@ Static keyboard layouts for Telegram reply keyboards."""
 from telegram import InlineKeyboardButton
 
 
+CANCEL_TEXT = "Отмена"
+SKIP_TEXT = "Пропустить"
+
 WLCOME_KEYBOARD = [
     [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
     [InlineKeyboardButton('Посмотреть последний результат', callback_data='last_measurement')],
@@ -23,16 +26,22 @@ WITH_EDIT_BUTTON_KEYBOARD = [
 ]
 
 BODY_POSITION_KEYBOARD = [
-    ["Стоя", "Сидя", "Лёжа", "Полу-лёжа", "Не указано",]
+    ["Стоя", "Сидя", "Лёжа", "Полу-лёжа", "Не указано"],
+    [CANCEL_TEXT],
 ]
 
 ARM_LOCATION_KEYBOARD = [
-    ["Левая рука", "Правая рука", "Левое плечо", "Правое плечо", "Не указано",]
+    ["Левая рука", "Правая рука", "Левое плечо", "Правое плечо", "Не указано"],
+    [CANCEL_TEXT],
 ]
 
 WELL_BEING_KEYBOARD = [
-    ["Хорошо", "Нормально", "Плохо"]
+    ["Хорошо", "Нормально", "Плохо"],
+    [CANCEL_TEXT],
 ]
+
+CANCEL_KEYBOARD = [[CANCEL_TEXT]]
+COMMENT_KEYBOARD = [[SKIP_TEXT], [CANCEL_TEXT]]
 
 EDIT_KEYBOARD = [
     [InlineKeyboardButton('Артериальное давление', callback_data='edit_pressure')],

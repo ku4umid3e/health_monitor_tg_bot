@@ -15,6 +15,7 @@ services:
       - PROXY_URL=${PROXY_URL:-}
       - DB_PATH=/app/data/measurements.db
       - ALEMBIC_INI=/app/alembic.ini
+      - LOG_PATH=/app/logs/bot.log
     healthcheck:
       test: ["CMD-SHELL", "if [ -n \"$$PROXY_URL\" ]; then curl -fsS --proxy \"$$PROXY_URL\" \"https://api.telegram.org/bot$$TOKEN/getMe\"; else curl -fsS \"https://api.telegram.org/bot$$TOKEN/getMe\"; fi"]
       interval: 30s

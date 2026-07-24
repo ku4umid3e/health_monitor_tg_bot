@@ -110,9 +110,16 @@ async def test_week_statistics_sends_photo(
     )
 
     assert dummy_update.callback_query.message.photos == [b"fake-png"]
-    caption = dummy_update.callback_query.message.photo_kwargs[-1]["caption"]
+    photo_kwargs = dummy_update.callback_query.message.photo_kwargs[-1]
+    caption = photo_kwargs["caption"]
     assert "Сводка за 7 дней" in caption
     assert "Медианное АД: 120/80" in caption
+    assert "reply_markup" not in photo_kwargs
+    assert dummy_update.callback_query.message.texts[-1] == (
+        "Выберите следующее действие:"
+    )
+    menu = dummy_update.callback_query.message.kwargs[-1]["reply_markup"]
+    assert menu.inline_keyboard[1][0].callback_data == "last_measurement"
     assert image.closed
 
 
@@ -132,3 +139,19 @@ async def test_statistics_reports_empty_period(
         "За последние 30 дней измерений нет."
     )
     assert dummy_update.callback_query.message.photos == []
+
+
+@pytest.mark.asyncio
+async def test_statistics_menu_replies_instead_of_editing_old_photo(
+    dummy_update, dummy_context,
+):
+    from app import measurement
+
+    dummy_update.callback_query.message.text = None
+
+    await measurement.get_day_statistics(dummy_update, dummy_context)
+
+    assert dummy_update.callback_query.edited_texts == []
+    assert dummy_update.callback_query.message.texts[-1] == (
+        "Выберите период для сводки:"
+    )

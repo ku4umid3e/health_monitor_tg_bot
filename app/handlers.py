@@ -60,11 +60,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log unhandled exceptions and, if possible, notify the user."""
-    logger.exception("Unhandled exception: %s", context.error)
+    error = context.error
+    callback_data = None
+    if isinstance(update, Update) and update.callback_query:
+        callback_data = update.callback_query.data
+    logger.error(
+        "Unhandled exception callback_data=%s: %s",
+        callback_data,
+        error,
+        exc_info=(type(error), error, error.__traceback__) if error else None,
+    )
     try:
         if isinstance(update, Update) and update.effective_message:
             await update.effective_message.reply_text(
-                "Произошла сетевая ошибка. Попробуйте ещё раз, пожалуйста."
+                "Произошла ошибка. Попробуйте ещё раз, пожалуйста."
             )
     except Exception as inner_err:  # noqa: BLE001
         logger.error("Failed to notify user about error: %s", inner_err)

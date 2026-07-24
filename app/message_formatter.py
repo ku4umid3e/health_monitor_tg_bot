@@ -39,12 +39,12 @@ def render_edit_summary(measurement_data: Dict[str, object]) -> str:
 
 
 def render_receipt(draft: Dict[str, object]) -> str:
+    comment = draft.get('comment') or '—'
     return (
         'Супер! Я записал измерение:\n'
         f"АД: {draft['pressure'][0]}/{draft['pressure'][1]}, Пульс: {draft['pulse'][0]}\n"
         f"Положение: {draft['body_position']}, Манжета: {draft['arm_location']}\n"
         f"Самочувствие: {draft['well_being']}\n"
-        f"Комментарий: {draft['comment']}"
+        f"Комментарий: {comment}"
     )
-
 
