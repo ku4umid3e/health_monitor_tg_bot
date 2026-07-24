@@ -9,6 +9,13 @@ WLCOME_KEYBOARD = [
     [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
 ]
 
+STATISTICS_PERIOD_KEYBOARD = [[
+    InlineKeyboardButton('За неделю', callback_data='statistics_week'),
+    InlineKeyboardButton('За месяц', callback_data='statistics_month'),
+], [
+    InlineKeyboardButton('Назад', callback_data='statistics_back'),
+]]
+
 WITH_EDIT_BUTTON_KEYBOARD = [
     [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
     [InlineKeyboardButton('Изменить последний результат', callback_data='edit_last_measurement')],

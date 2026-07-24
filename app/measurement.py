@@ -20,6 +20,7 @@ from keyboards import (
     WELL_BEING_KEYBOARD,
     WITH_EDIT_BUTTON_KEYBOARD,
     EDIT_KEYBOARD,
+    STATISTICS_PERIOD_KEYBOARD,
     EDIT_BODY_POSITION_KEYBOARD,
     EDIT_ARM_LOCATION_KEYBOARD,
     EDIT_WELL_BEING_KEYBOARD,
@@ -37,6 +38,8 @@ from reference import (
 )
 from measurement_repository import MeasurementRepository
 from message_formatter import render_edit_summary, render_last_measurement, render_receipt
+from chart_renderer import render_statistics_chart
+from health_statistics import build_statistics_report, format_statistics_caption
 
 configure_logging()
 
@@ -137,38 +140,67 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
 
 
 async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
-    """Return aggregated statistics for the last day."""
+    """Show available statistics periods."""
+    await update.callback_query.edit_message_text(
+        "Выберите период для сводки:",
+        reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
+    )
+
+
+async def send_statistics_report(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    db_path: str = None,
+):
+    """Generate and send a weekly or monthly chart."""
+    periods = {
+        "statistics_week": (7, False),
+        "statistics_month": (30, True),
+    }
+    period = periods.get(update.callback_query.data)
+    if period is None:
+        await update.callback_query.edit_message_text(
+            "Неизвестный период.",
+            reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+        return
+
+    days, daily_aggregation = period
     user_id = db.get_user(update.effective_user).get('UserID')
     rows = MeasurementRepository().list_since_days(
-        user_id=user_id, days=3, database_path=db_path,
+        user_id=user_id, days=days, database_path=db_path,
     )
 
     if not rows:
         await update.callback_query.edit_message_text(
-            "Записей ещё нет, либо они старше 3х дней.",
-            reply_markup=InlineKeyboardMarkup(
-                WLCOME_KEYBOARD
-            ),
+            f"За последние {days} дней измерений нет.",
+            reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
         )
         return
 
-    text = '📊 Измерения за 3 дня:\n\n'
-
-    current_day = None
-    for row in rows:
-        _, ts, sys, dia, pls, pos, arm, com, well_being_name = row
-        day = ts.split()[0] if isinstance(ts, str) else str(ts)
-        if day != current_day:
-            current_day = day
-            text += f'\n📅 {current_day}\n'
-        time_part = ts.split()[1][:5] if isinstance(ts, str) else str(ts)
-        text += f'  ⏰ {time_part} - АД: {sys}/{dia}, Пульс: {pls}, Самочувствие: {well_being_name or "Не указано"}\n'
-
+    report = build_statistics_report(
+        rows, days=days, daily_aggregation=daily_aggregation,
+    )
+    image = render_statistics_chart(report)
     await update.callback_query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(
-            WLCOME_KEYBOARD
-        ),
+        "Сводка сформирована.",
+        reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
+    )
+    try:
+        await update.callback_query.message.reply_photo(
+            photo=image,
+            caption=format_statistics_caption(report),
+            reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+    finally:
+        image.close()
+
+
+async def statistics_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Return from the period selector to the main menu."""
+    await update.callback_query.edit_message_text(
+        "Главное меню:",
+        reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
     )
 
 
