@@ -10,7 +10,13 @@ from telegram.ext import ContextTypes
 
 from bot_messages import WELCOME_MESSAGE
 from keyboards import WLCOME_KEYBOARD
-from measurement import last_measurement, get_day_statistics, edit_last_measurement
+from measurement import (
+    edit_last_measurement,
+    get_day_statistics,
+    last_measurement,
+    send_statistics_report,
+    statistics_back,
+)
 import db
 from logging_config import configure_logging
 
@@ -21,6 +27,9 @@ logger = logging.getLogger(__name__)
 CALLBACK_HANDLERS = {
     'last_measurement': last_measurement,
     'get_day_statistics': get_day_statistics,
+    'statistics_week': send_statistics_report,
+    'statistics_month': send_statistics_report,
+    'statistics_back': statistics_back,
     'edit_last_measurement': edit_last_measurement,
 }
 

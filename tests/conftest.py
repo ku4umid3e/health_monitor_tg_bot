@@ -1,5 +1,6 @@
 import os
 import sys
+import importlib
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -7,20 +8,20 @@ from types import SimpleNamespace
 import pytest
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+APP_DIR = PROJECT_ROOT / "app"
+for import_path in (PROJECT_ROOT, APP_DIR):
+    if str(import_path) not in sys.path:
+        sys.path.insert(0, str(import_path))
+
+os.environ.setdefault("PYTEST_CURRENT_TEST", "collection")
+app_db = importlib.import_module("app.db")
+sys.modules["db"] = app_db
+
+
 @pytest.fixture()
 def temp_db(monkeypatch):
     # Create temp sqlite file and init schema
-    # Ensure project root is on sys.path for `import app`
-    project_root = Path(__file__).resolve().parents[1]
-    app_dir = project_root / "app"
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-    if str(app_dir) not in sys.path:
-        sys.path.insert(0, str(app_dir))
-
-    from app import db as app_db
-    # Ensure 'db' module name points to the same module as 'app.db'
-    sys.modules['db'] = app_db
     fd, path = tempfile.mkstemp(prefix="test_meas_", suffix=".db")
     os.close(fd)
     monkeypatch.setattr(app_db, "db_name", path, raising=True)
@@ -39,11 +40,17 @@ class DummyMessage:
     def __init__(self):
         self.texts = []
         self.kwargs = []
+        self.photos = []
+        self.photo_kwargs = []
         self.chat = SimpleNamespace(id=123)
 
     async def reply_text(self, text, **kwargs):
         self.texts.append(text)
         self.kwargs.append(kwargs)
+
+    async def reply_photo(self, photo, **kwargs):
+        self.photos.append(photo.read())
+        self.photo_kwargs.append(kwargs)
 
 
 class DummyCallbackQuery:
@@ -51,6 +58,7 @@ class DummyCallbackQuery:
         self.message = DummyMessage()
         self.edited_texts = []
         self.edit_kwargs = []
+        self.data = None
 
     async def answer(self):
         # No-op for tests
