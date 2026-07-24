@@ -38,6 +38,7 @@ def temp_db(monkeypatch):
 
 class DummyMessage:
     def __init__(self):
+        self.text = "callback message"
         self.texts = []
         self.kwargs = []
         self.photos = []

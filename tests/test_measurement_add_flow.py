@@ -124,14 +124,17 @@ async def test_full_measurement_dialog_flow(temp_db, dummy_update, dummy_context
     dummy_update.message.text = "Немного устал"
     result = await measurement.comment(dummy_update, dummy_context)
     assert result == ConversationHandler.END
-    assert dummy_context.user_data['measurements']['comment'] == "Немного устал"
-    dummy_update.message.reply_text.assert_called_with(
+    assert "measurements" not in dummy_context.user_data
+    dummy_update.message.reply_text.assert_any_call(
         'Супер! Я записал измерение:\n'
         'АД: 120/80, Пульс: 70\n'
         'Положение: Сидя, Манжета: Левое плечё\n'
         'Самочувствие: Нормально\n'
         'Комментарий: Немного устал',
-        reply_markup=mocker.ANY  # WLCOME_KEYBOARD
+        reply_markup=mocker.ANY
+    )
+    dummy_update.message.reply_text.assert_called_with(
+        "Главное меню:", reply_markup=mocker.ANY,
     )
 
     # Verify DB wrote records
@@ -215,3 +218,58 @@ async def test_full_measurement_dialog_invalid_pulse(temp_db, dummy_update, dumm
         det_cnt = cursor.fetchone()[0]
     assert meas_cnt == 0
     assert det_cnt == 0
+
+
+@pytest.mark.asyncio
+async def test_cancel_add_measurement_discards_draft(
+    temp_db, dummy_update, dummy_context,
+):
+    from app import db, measurement
+    from telegram.ext import ConversationHandler
+
+    dummy_context.user_data["measurements"] = {
+        "pressure": ["120", "80"],
+    }
+    dummy_update.message.text = "Отмена"
+
+    result = await measurement.cancel_add_measurement(
+        dummy_update, dummy_context,
+    )
+
+    assert result == ConversationHandler.END
+    assert "measurements" not in dummy_context.user_data
+    assert dummy_update.effective_message.texts == [
+        "Запись измерения отменена.",
+        "Главное меню:",
+    ]
+    with db.UseDB(db.db_name) as cursor:
+        cursor.execute("SELECT COUNT(*) FROM Measurements")
+        assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_skip_comment_saves_measurement_without_comment(
+    temp_db, dummy_update, dummy_context,
+):
+    from app import db, measurement
+    from telegram.ext import ConversationHandler
+
+    dummy_context.user_data["measurements"] = {
+        "pressure": ["120", "80"],
+        "pulse": ["70"],
+        "body_position": "Сидя",
+        "arm_location": "Левая рука",
+        "well_being": "Нормально",
+    }
+    dummy_update.message.text = "Пропустить"
+
+    result = await measurement.comment(dummy_update, dummy_context)
+
+    assert result == ConversationHandler.END
+    assert "measurements" not in dummy_context.user_data
+    assert "Комментарий: —" in dummy_update.message.texts[0]
+    with db.UseDB(db.db_name) as cursor:
+        cursor.execute("SELECT COUNT(*) FROM Measurements")
+        assert cursor.fetchone()[0] == 1
+        cursor.execute("SELECT COUNT(*) FROM Comments")
+        assert cursor.fetchone()[0] == 0

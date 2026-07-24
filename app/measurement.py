@@ -24,6 +24,9 @@ from keyboards import (
     EDIT_BODY_POSITION_KEYBOARD,
     EDIT_ARM_LOCATION_KEYBOARD,
     EDIT_WELL_BEING_KEYBOARD,
+    CANCEL_KEYBOARD,
+    COMMENT_KEYBOARD,
+    SKIP_TEXT,
 )
 
 from logging_config import configure_logging
@@ -46,6 +49,20 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 EditHandler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[str]]
+
+
+async def _edit_or_reply_callback_message(
+    update: Update,
+    text: str,
+    *,
+    reply_markup: InlineKeyboardMarkup,
+) -> None:
+    """Edit text callbacks, but reply to media messages that have no text."""
+    callback = update.callback_query
+    if callback.message.text is None:
+        await callback.message.reply_text(text, reply_markup=reply_markup)
+    else:
+        await callback.edit_message_text(text, reply_markup=reply_markup)
 
 
 async def add_measurement(update: Update, data: dict) -> None:
@@ -106,14 +123,13 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     # Simple join to get the latest measurement details
     row = MeasurementRepository().get_last_by_user(user_id, db_path)
     if not row:
-        message = update.message or update.callback_query
-        sender = message.reply_text if update.message else message.edit_message_text
-        await sender(
-            "Записей ещё нет.",
-            reply_markup=InlineKeyboardMarkup(
-                WLCOME_KEYBOARD
-            ),
-        )
+        markup = InlineKeyboardMarkup(WLCOME_KEYBOARD)
+        if update.message:
+            await update.message.reply_text("Записей ещё нет.", reply_markup=markup)
+        else:
+            await _edit_or_reply_callback_message(
+                update, "Записей ещё нет.", reply_markup=markup,
+            )
         return
 
     id, ts, sys_p, dia_p, pulse, pos_name, arm_name, comment_text, well_being_name = row
@@ -131,7 +147,8 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         'WellBeing': well_being_name,
     }
     context.user_data['edit_measurement'] = measurement_data
-    await update.callback_query.edit_message_text(
+    await _edit_or_reply_callback_message(
+        update,
         text,
         reply_markup=InlineKeyboardMarkup(
             WITH_EDIT_BUTTON_KEYBOARD
@@ -141,7 +158,8 @@ async def last_measurement(update: Update, context: ContextTypes.DEFAULT_TYPE, d
 
 async def get_day_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE, db_path: str = None):
     """Show available statistics periods."""
-    await update.callback_query.edit_message_text(
+    await _edit_or_reply_callback_message(
+        update,
         "Выберите период для сводки:",
         reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
     )
@@ -159,7 +177,8 @@ async def send_statistics_report(
     }
     period = periods.get(update.callback_query.data)
     if period is None:
-        await update.callback_query.edit_message_text(
+        await _edit_or_reply_callback_message(
+            update,
             "Неизвестный период.",
             reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
         )
@@ -172,7 +191,8 @@ async def send_statistics_report(
     )
 
     if not rows:
-        await update.callback_query.edit_message_text(
+        await _edit_or_reply_callback_message(
+            update,
             f"За последние {days} дней измерений нет.",
             reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
         )
@@ -182,7 +202,8 @@ async def send_statistics_report(
         rows, days=days, daily_aggregation=daily_aggregation,
     )
     image = render_statistics_chart(report)
-    await update.callback_query.edit_message_text(
+    await _edit_or_reply_callback_message(
+        update,
         "Сводка сформирована.",
         reply_markup=InlineKeyboardMarkup(STATISTICS_PERIOD_KEYBOARD),
     )
@@ -190,6 +211,9 @@ async def send_statistics_report(
         await update.callback_query.message.reply_photo(
             photo=image,
             caption=format_statistics_caption(report),
+        )
+        await update.callback_query.message.reply_text(
+            "Выберите следующее действие:",
             reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
         )
     finally:
@@ -198,7 +222,8 @@ async def send_statistics_report(
 
 async def statistics_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Return from the period selector to the main menu."""
-    await update.callback_query.edit_message_text(
+    await _edit_or_reply_callback_message(
+        update,
         "Главное меню:",
         reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
     )
@@ -546,7 +571,9 @@ async def start_add_measurement(update: Update, context: ContextTypes.DEFAULT_TY
     logger.info("Start add measurement: user_id=%s chat_id=%s", update.effective_user.id, update.effective_chat.id)
     await update.effective_message.reply_text(
         INPUT_PRESSURE,
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=ReplyKeyboardMarkup(
+            CANCEL_KEYBOARD, resize_keyboard=True,
+        ),
         )
     return "blood_pressure"
 
@@ -612,14 +639,34 @@ async def well_being(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("Selected well_being: %s user_id=%s", update.message.text, update.effective_user.id)
     await update.message.reply_text(
         "Любые жалобы или заметки? (можно пропустить)",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardMarkup(
+            COMMENT_KEYBOARD, resize_keyboard=True,
+        ),
     )
     return "comment"
 
 
+async def cancel_add_measurement(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """Discard the current draft and return to the main menu."""
+    context.user_data.pop('measurements', None)
+    await update.effective_message.reply_text(
+        "Запись измерения отменена.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await update.effective_message.reply_text(
+        "Главное меню:",
+        reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    return ConversationHandler.END
+
+
 async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Finalize collection, persist data, and end the conversation."""
-    context.user_data['measurements']['comment'] = update.message.text
+    comment_text = "" if update.message.text == SKIP_TEXT else update.message.text
+    context.user_data['measurements']['comment'] = comment_text
     query = context.user_data['measurements']
     logger.info(f'type query:{query}')
     await add_measurement(update, context.user_data)
@@ -627,8 +674,11 @@ async def comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("Send receipt to user_id=%s: %s", update.effective_user.id, receipt.replace('\n', ' | '))
     await update.message.reply_text(
         receipt,
-        reply_markup=InlineKeyboardMarkup(
-            WLCOME_KEYBOARD
-        ),
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    context.user_data.pop('measurements', None)
+    await update.message.reply_text(
+        "Главное меню:",
+        reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
     )
     return ConversationHandler.END
