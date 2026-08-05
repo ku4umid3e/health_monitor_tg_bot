@@ -119,7 +119,9 @@ async def test_week_statistics_sends_photo(
         "Выберите следующее действие:"
     )
     menu = dummy_update.callback_query.message.kwargs[-1]["reply_markup"]
-    assert menu.inline_keyboard[1][0].callback_data == "last_measurement"
+    callback_data = [button.callback_data for row in menu.inline_keyboard for button in row]
+    assert "last_measurement" in callback_data
+    assert "medication_intake" in callback_data
     assert image.closed
 
 

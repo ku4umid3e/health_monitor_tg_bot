@@ -37,6 +37,25 @@ from measurement import (
     cancel_edit_command,
     cancel_add_measurement,
 )
+from medication import (
+    arbitrary_dose,
+    arbitrary_name,
+    cancel_text_flow,
+    edit_comment as edit_medication_comment,
+    edit_time as edit_medication_time,
+    intake_choice,
+    medication_done,
+    save_one_off,
+    settings_choice,
+    settings_dose,
+    settings_name,
+    settings_schedule,
+    start_edit_comment,
+    start_edit_time,
+    start_medication_intake,
+    start_medication_settings,
+    undo_intake,
+)
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -119,9 +138,73 @@ def main() -> None:
         per_user=True,
     )
 
+    medication_intake_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_medication_intake, pattern='^medication_intake$'),
+            CallbackQueryHandler(start_edit_time, pattern=r'^med_time:\d+$'),
+            CallbackQueryHandler(start_edit_comment, pattern=r'^med_comment:\d+$'),
+            CallbackQueryHandler(undo_intake, pattern=r'^med_undo:\d+$'),
+            CallbackQueryHandler(save_one_off, pattern=r'^med_save:\d+$'),
+            CallbackQueryHandler(medication_done, pattern='^med_done$'),
+        ],
+        states={
+            "intake_choice": [
+                CallbackQueryHandler(intake_choice, pattern=r'^(med_take:\d+|med_other|med_cancel)$'),
+            ],
+            "intake_name": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, arbitrary_name),
+            ],
+            "intake_dose": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, arbitrary_dose),
+            ],
+            "edit_intake_time": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, edit_medication_time),
+            ],
+            "edit_intake_comment": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, edit_medication_comment),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_text_flow)],
+        per_chat=True,
+        per_user=True,
+    )
+
+    medication_settings_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_medication_settings, pattern='^medication_settings$'),
+        ],
+        states={
+            "settings_menu": [CallbackQueryHandler(
+                settings_choice,
+                pattern=r'^(med_add|med_settings_done|med_toggle:\d+|med_archive:\d+)$',
+            )],
+            "settings_name": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, settings_name),
+            ],
+            "settings_dose": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, settings_dose),
+            ],
+            "settings_schedule": [
+                MessageHandler(filters.Regex('^Отмена$'), cancel_text_flow),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, settings_schedule),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_text_flow)],
+        per_chat=True,
+        per_user=True,
+    )
+
     # Register command handlers
     app.add_handler(questions_blood_pressure)
     app.add_handler(edit_last_measurement_conversation)
+    app.add_handler(medication_intake_conversation)
+    app.add_handler(medication_settings_conversation)
     app.add_handler(CallbackQueryHandler(button_handlers))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))

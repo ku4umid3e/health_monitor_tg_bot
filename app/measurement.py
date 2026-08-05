@@ -43,6 +43,8 @@ from measurement_repository import MeasurementRepository
 from message_formatter import render_edit_summary, render_last_measurement, render_receipt
 from chart_renderer import render_statistics_chart
 from health_statistics import build_statistics_report, format_statistics_caption
+from doctor_report import render_doctor_report
+from medication_repository import MedicationRepository
 
 configure_logging()
 
@@ -189,7 +191,6 @@ async def send_statistics_report(
     rows = MeasurementRepository().list_since_days(
         user_id=user_id, days=days, database_path=db_path,
     )
-
     if not rows:
         await _edit_or_reply_callback_message(
             update,
@@ -227,6 +228,43 @@ async def statistics_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Главное меню:",
         reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
     )
+
+
+async def send_doctor_report(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    db_path: str = None,
+):
+    """Generate and send the current user's 90-day PDF report."""
+    user_id = db.get_user(update.effective_user).get('UserID')
+    rows = MeasurementRepository().list_since_days(
+        user_id=user_id, days=90, database_path=db_path,
+    )
+    medication_rows = MedicationRepository().list_since_days(
+        user_id=user_id, days=90, database_path=db_path,
+    )
+    if not rows:
+        await _edit_or_reply_callback_message(
+            update,
+            "За последние 90 дней измерений нет.",
+            reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+        )
+        return
+
+    await _edit_or_reply_callback_message(
+        update,
+        "Формирую отчёт за последние 90 дней…",
+        reply_markup=InlineKeyboardMarkup(WLCOME_KEYBOARD),
+    )
+    report = render_doctor_report(rows, medication_rows, days=90)
+    try:
+        await update.callback_query.message.reply_document(
+            document=report,
+            filename=report.name,
+            caption="Отчёт для врача за последние 90 дней. Время указано по Москве (MSK).",
+        )
+    finally:
+        report.close()
 
 
 def _render_edit_summary(measurement_data: dict) -> str:

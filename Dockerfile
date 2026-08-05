@@ -6,6 +6,7 @@ RUN apk add --no-cache \
     musl-dev \
     libffi-dev \
     openssl-dev \
+    tzdata \
     curl
 
 # Установка uv

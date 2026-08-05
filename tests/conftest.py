@@ -43,6 +43,8 @@ class DummyMessage:
         self.kwargs = []
         self.photos = []
         self.photo_kwargs = []
+        self.documents = []
+        self.document_kwargs = []
         self.chat = SimpleNamespace(id=123)
 
     async def reply_text(self, text, **kwargs):
@@ -52,6 +54,10 @@ class DummyMessage:
     async def reply_photo(self, photo, **kwargs):
         self.photos.append(photo.read())
         self.photo_kwargs.append(kwargs)
+
+    async def reply_document(self, document, **kwargs):
+        self.documents.append(document.read())
+        self.document_kwargs.append(kwargs)
 
 
 class DummyCallbackQuery:
