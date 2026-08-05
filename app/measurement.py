@@ -10,6 +10,7 @@ import sqlite3
 from typing import Callable, Awaitable
 
 from telegram import InlineKeyboardMarkup, ReplyKeyboardRemove, Update, ReplyKeyboardMarkup
+from telegram.error import BadRequest
 from telegram.ext import ConversationHandler, ContextTypes
 
 from bot_messages import INPUT_PRESSURE, WRONG_PRESSURE, WRONG_PULSE
@@ -64,7 +65,13 @@ async def _edit_or_reply_callback_message(
     if callback.message.text is None:
         await callback.message.reply_text(text, reply_markup=reply_markup)
     else:
-        await callback.edit_message_text(text, reply_markup=reply_markup)
+        try:
+            await callback.edit_message_text(text, reply_markup=reply_markup)
+        except BadRequest as error:
+            # Telegram rejects an edit when a user taps the already selected
+            # period again. It is an idempotent action, not an application error.
+            if "message is not modified" not in str(error).lower():
+                raise
 
 
 async def add_measurement(update: Update, data: dict) -> None:

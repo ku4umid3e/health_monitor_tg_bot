@@ -157,3 +157,19 @@ async def test_statistics_menu_replies_instead_of_editing_old_photo(
     assert dummy_update.callback_query.message.texts[-1] == (
         "Выберите период для сводки:"
     )
+
+
+@pytest.mark.asyncio
+async def test_statistics_menu_ignores_unchanged_message(
+    dummy_update, dummy_context, mocker,
+):
+    from telegram.error import BadRequest
+    from app import measurement
+
+    mocker.patch.object(
+        dummy_update.callback_query,
+        "edit_message_text",
+        side_effect=BadRequest("Message is not modified"),
+    )
+
+    await measurement.get_day_statistics(dummy_update, dummy_context)
