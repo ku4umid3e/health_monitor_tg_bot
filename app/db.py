@@ -330,27 +330,39 @@ def run_migrations(target_db_path: str | None = None) -> None:
     # Override sqlalchemy.url dynamically for the requested DB path
     cfg.set_main_option("sqlalchemy.url", _sqlite_url(path))
     logger.info(f"Alembic config {cfg}")
+    _stamp_legacy_database(cfg, path)
     # Run upgrade to head
     alembic_command.upgrade(cfg, "head")
 
 
-def check_db_exists():
-    """
-    This function executes a SQL SELECT query to check if a table named 'Users' exists
-    in the database. If the table is found, the function returns without taking any action.
-    If the table does not exist, it calls the '_init_db()' function to initialize the database.
-    """
-    logger.info(f"Check db {db_name}")
-    with UseDB(db_name) as cursor:
+def _stamp_legacy_database(cfg: AlembicConfig, path: str) -> None:
+    """Register a pre-Alembic schema so only missing migrations are applied."""
+    with UseDB(path) as cursor:
         cursor.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name='Users'"
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name IN ('Users', 'alembic_version')"
         )
-        table_exists = cursor.fetchall()
-        if table_exists:
+        tables = {row[0] for row in cursor.fetchall()}
+        if "Users" not in tables or "alembic_version" in tables:
             return
-        logger.info("Init db via Alembic")
-        run_migrations(db_name)
+
+        cursor.execute("PRAGMA table_info(Measurements)")
+        measurement_columns = {row[1] for row in cursor.fetchall()}
+
+    # WellBeingID means the first feature migration is already represented in
+    # the legacy database. The following normalization and medication changes
+    # remain safe and must still be applied.
+    revision = "8ae032cbe019" if "WellBeingID" in measurement_columns else "0001_initial"
+    logger.info("Stamp legacy database at revision %s", revision)
+    alembic_command.stamp(cfg, revision)
+
+
+def check_db_exists():
+    """Create a fresh schema or upgrade an existing database to Alembic head."""
+    logger.info(f"Check db {db_name}")
+    # Alembic is safe to run repeatedly and must also run for an existing DB:
+    # new releases may contain schema changes such as medication tables.
+    run_migrations(db_name)
 
 
 # Only check DB exists if not in test environment
