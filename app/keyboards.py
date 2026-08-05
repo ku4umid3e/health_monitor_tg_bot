@@ -8,8 +8,11 @@ SKIP_TEXT = "Пропустить"
 
 WLCOME_KEYBOARD = [
     [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
+    [InlineKeyboardButton('💊 Принял лекарство', callback_data='medication_intake')],
     [InlineKeyboardButton('Посмотреть последний результат', callback_data='last_measurement')],
-    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
+    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')],
+    [InlineKeyboardButton('Отчёт для врача (PDF)', callback_data='doctor_report')],
+    [InlineKeyboardButton('Настроить лекарства', callback_data='medication_settings')],
 ]
 
 STATISTICS_PERIOD_KEYBOARD = [[
@@ -21,8 +24,11 @@ STATISTICS_PERIOD_KEYBOARD = [[
 
 WITH_EDIT_BUTTON_KEYBOARD = [
     [InlineKeyboardButton('Записать результат измерения', callback_data='add_measurement')],
+    [InlineKeyboardButton('💊 Принял лекарство', callback_data='medication_intake')],
     [InlineKeyboardButton('Изменить последний результат', callback_data='edit_last_measurement')],
-    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')]
+    [InlineKeyboardButton('Сводка за период', callback_data='get_day_statistics')],
+    [InlineKeyboardButton('Отчёт для врача (PDF)', callback_data='doctor_report')],
+    [InlineKeyboardButton('Настроить лекарства', callback_data='medication_settings')],
 ]
 
 BODY_POSITION_KEYBOARD = [

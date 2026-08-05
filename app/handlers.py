@@ -15,6 +15,7 @@ from measurement import (
     get_day_statistics,
     last_measurement,
     send_statistics_report,
+    send_doctor_report,
     statistics_back,
 )
 import db
@@ -30,6 +31,7 @@ CALLBACK_HANDLERS = {
     'statistics_week': send_statistics_report,
     'statistics_month': send_statistics_report,
     'statistics_back': statistics_back,
+    'doctor_report': send_doctor_report,
     'edit_last_measurement': edit_last_measurement,
 }
 
